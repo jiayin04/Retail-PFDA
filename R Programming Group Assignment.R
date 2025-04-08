@@ -1,5 +1,5 @@
 # Install packages
-install.packages(c("tidyr", "data.table", "dplyr", "ggplot2", "janitor", "missForest", "VIM"))
+install.packages(c("tidyr", "data.table", "dplyr", "ggplot2", "janitor", "missForest", "VIM", "zoo"))
 
 # Load library
 library(tidyr)
@@ -7,10 +7,12 @@ library(data.table)
 library(dplyr)
 library(janitor)    
 library(missForest) 
+library(randomForest) 
 library(VIM) 
 library(hms)
 library(readr)
 library(lubridate)
+library(zoo)
 
 # Set working directory
 WD <- "~/Custom Office Templates/Academic/Degree/Year 2 Sem 1/PfDA/Assignment/R Source Code" # Change to your WD
@@ -67,11 +69,6 @@ factor_cols_to_clean <- c("Gender", "Country", "Income", "Customer_Segment", "Pr
 retail_data <- retail_data |> mutate(across(all_of(factor_cols_to_clean), ~ na_if(., ""))) |> 
   mutate(across(all_of(factor_cols_to_clean), as.factor))
 
-# retail_data[factor_cols_to_clean] <- lapply(retail_data[factor_cols_to_clean], function(x) {
-#   x[x == ""] <- NA  # Replace empty strings with NA
-#   as.factor(x)      # Convert to factor
-# })
-
 
 ### Handling missing values
 ## Check for missing values
@@ -82,34 +79,50 @@ empty_counts <- colSums(retail_data == "")
 print(na_counts)
 print(empty_counts)
 
-
-## Remove rows without Transaction_ID
-retail_data <- retail_data |> drop_na(Transaction_ID)
+## Remove rows without Transaction_ID & Customer_ID
+retail_data <- retail_data |> drop_na(Transaction_ID, Customer_ID)
 retail_data <- retail_data |> distinct(Transaction_ID, .keep_all = TRUE) # Keep distinct
 
+########## MissForest Imputation ##########
+# Set seed for reproducibility
+set.seed(123)
 
-## MissForest Imputation (Got issues)
 # Select numerical columns only
 missForest_cols <- c("Age", "Purchase_Quantity", "Amount")
 
 # Subset only numerical columns
 retail_data_numeric <- retail_data[, missForest_cols]
-na_counts <- colSums(is.na(retail_data_numeric))
-print(na_counts)
-# For reproducibility
-set.seed(123)
-retail_data_numeric_imputed <- missForest(retail_data_numeric)
 
-# Replace original dataset with imputed values
-clean_retail_data[, missForest_cols] <- retail_data_numeric_imputed$ximp
+# Check missing values before imputation
+print("Missing values before imputation:")
+print(colSums(is.na(retail_data_numeric)))
 
-# Check dataset to make sure no missing rows
-plot_missing(clean_retail_data)
-summary(clean_retail_data)
+# Convert to data frame
+retail_numeric_df <- as.data.frame(retail_data_numeric)
 
+# Apply missForest imputation
+retail_imputed <- missForest(retail_numeric_df)
 
+# Check missing values after imputation
+print("Missing values after imputation:")
+print(colSums(is.na(retail_imputed$ximp)))
 
-## KNN Imputation
+# View the imputed dataset
+print(retail_imputed$ximp)
+
+# Replace imputed values in the original dataset
+retail_data <- retail_data |> 
+  mutate(
+    Age = as.integer(round(retail_imputed$ximp$Age)),
+    Purchase_Quantity = round(retail_imputed$ximp$Purchase_Quantity, 0),
+    Amount = round(retail_imputed$ximp$Amount, 2)
+  )
+
+# Verify the structure
+str(retail_data)
+View(retail_data)
+
+######## KNN Imputation ##########
 # Select category columns
 cat_cols <- c("Gender", "Income", "Customer_Segment", "Product_Category", "Product_Brand", "Product_Type", "Shipping_Method", "Payment_Method", "Order_Status", "Products")
 
@@ -120,22 +133,49 @@ retail_data <- kNN(retail_data, variable = cat_cols, k=5)
 retail_data <- retail_data |> select(-ends_with("_imp"))
 
 
-
-## Mode Imputation
+######## Mode Imputation ##########
 mode_impute <- function(x) {
   ux <- unique(na.omit(x))
   ux[which.max(tabulate(match(x, ux)))]
 }
 
-# Apply mode imputation
+# Apply mode imputation [Feedback, Ratings, Country, State, City]
 retail_data$Feedback[is.na(retail_data$Feedback)] <- mode_impute(retail_data$Feedback)
 retail_data$Ratings[is.na(retail_data$Ratings)] <- mode_impute(retail_data$Ratings)
+retail_data$Country[is.na(retail_data$Country)] <- mode_impute(retail_data$Country)
 
-## Customer ID, City, State, Country, Date & Time
+retail_data <- retail_data |>
+  group_by(Country) |>
+  mutate(State = ifelse(is.na(State), mode_impute(State), State)) |>
+  ungroup()
+
+retail_data <- retail_data |>
+  group_by(State) |>
+  mutate(City = ifelse(is.na(City), mode_impute(City), City)) |>
+  ungroup()
+
+########## Forward/Backward Filling - Date & Time ##########
+# Impute Date by Customer_ID
+
+retail_data <- retail_data %>%
+  group_by(Customer_ID) %>%
+  arrange(Date, .by_group = TRUE) %>%
+  fill(Date, .direction = "downup") %>%
+  mutate(
+    Date = ifelse(is.na(Date), mode_impute(Date), Date)
+  ) %>%
+  ungroup()
+
+# Impute Time - Liner interpolation
+retail_data <- retail_data %>%
+  mutate(
+    Time_seconds = as.numeric(as_hms(Time)),
+    Time_seconds = zoo::na.approx(Time_seconds, na.rm = FALSE),
+    Time = hms::as_hms(Time_seconds)
+  ) %>%
+  select(-Time_seconds)  # Remove helper column
 
 
-
-
-# Validate dataset to make sure it had cleaned
+########## Validate dataset to make sure it had cleaned ##########
 str(retail_data)
 summary(retail_data)
