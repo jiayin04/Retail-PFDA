@@ -7,7 +7,6 @@ library(data.table)
 library(dplyr)
 library(janitor)    
 library(missForest) 
-library(randomForest) 
 library(VIM) 
 library(hms)
 library(readr)
@@ -30,31 +29,33 @@ View(retail_data)
 # Remove unnecessary columns
 retail_data <- retail_data |> select(-c(Address, Email, Phone, Name, Year, Month, Total_Amount, Zipcode))
 
-# Clean Transaction_ID
-retail_data <- retail_data |> mutate(Transaction_ID = as.character(Transaction_ID))
-
-# Clean Customer_ID
-retail_data <- retail_data |> mutate(Customer_ID = as.character(Customer_ID))
+# Clean Transaction_ID & Customer_ID
+retail_data <- retail_data |> mutate(
+  Transaction_ID = as.character(Transaction_ID),
+  Customer_ID = as.character(Customer_ID)
+  )
 
 # Clean City
-retail_data$City <- ifelse(trimws(retail_data$City) == "", NA, trimws(retail_data$City))
-
-# Clean State
-retail_data$State <- ifelse(trimws(retail_data$State) == "", NA, trimws(retail_data$State))
+retail_data <- retail_data |> 
+  mutate(
+    City = ifelse(trimws(City) == "", NA, trimws(City)),
+    State = ifelse(trimws(State) == "", NA, trimws(State))
+  )
 
 # Clean Age
 retail_data$Age <- as.integer(suppressWarnings(as.numeric(retail_data$Age)))
 retail_data$Age[retail_data$Age < 18 | retail_data$Age > 70] <- NA 
 
 # Clean Date
-retail_data$Date <- mdy(retail_data$Date)
-
-# Clean Time & Convert to HH:MM:SS
-retail_data$Time <- as_hms(as.POSIXct(retail_data$Time, format="%H:%M:%S")) 
+# retail_data$Date <- mdy(retail_data$Date)
+# 
+# # Clean Time & Convert to HH:MM:SS
+# retail_data$Time <- as_hms(as.POSIXct(retail_data$Time, format="%H:%M:%S")) 
 
 # Clean up and rename Total_Purchases to Purchase_Quantity for clarity
-retail_data <- retail_data |> rename(Purchase_Quantity = Total_Purchases)
-retail_data$Purchase_Quantity <- as.numeric(retail_data$Purchase_Quantity)
+retail_data <- retail_data |> 
+  rename(Purchase_Quantity = Total_Purchases) |> 
+  mutate(Purchase_Quantity = as.numeric(Purchase_Quantity))
 
 # Clean Amount
 retail_data$Amount <- round(as.numeric(retail_data$Amount), 2)
@@ -124,13 +125,28 @@ View(retail_data)
 
 ######## KNN Imputation ##########
 # Select category columns
-cat_cols <- c("Gender", "Income", "Customer_Segment", "Product_Category", "Product_Brand", "Product_Type", "Shipping_Method", "Payment_Method", "Order_Status", "Products")
+
+cat_cols <- c("Gender", "Income", "Customer_Segment", "Product_Category", "Product_Brand", "Product_Type", "Shipping_Method", "Payment_Method", "Order_Status", "Products", "Date")
+
+retail_data$Date <- as.numeric(as.Date(retail_data$Date, format = "%m-%d-%Y"))
 
 # Apply KNN Imputation (k = 5)
 retail_data <- kNN(retail_data, variable = cat_cols, k=5)
 
 # Reflect in original dataset
 retail_data <- retail_data |> select(-ends_with("_imp"))
+
+# After imputation, convert numeric Date back to Date format
+retail_data$Date <- as.Date(retail_data$Date, origin = "1970-01-01")
+
+##### Impute Time - Liner interpolation ####
+retail_data <- retail_data %>%
+  mutate(
+    Time_seconds = as.numeric(as_hms(Time)),
+    Time_seconds = zoo::na.approx(Time_seconds, na.rm = FALSE),
+    Time = hms::as_hms(Time_seconds)
+  ) %>%
+  select(-Time_seconds)  # Remove helper column
 
 
 ######## Mode Imputation ##########
@@ -154,26 +170,6 @@ retail_data <- retail_data |>
   mutate(City = ifelse(is.na(City), mode_impute(City), City)) |>
   ungroup()
 
-########## Forward/Backward Filling - Date & Time ##########
-# Impute Date by Customer_ID
-
-retail_data <- retail_data %>%
-  group_by(Customer_ID) %>%
-  arrange(Date, .by_group = TRUE) %>%
-  fill(Date, .direction = "downup") %>%
-  mutate(
-    Date = ifelse(is.na(Date), mode_impute(Date), Date)
-  ) %>%
-  ungroup()
-
-# Impute Time - Liner interpolation
-retail_data <- retail_data %>%
-  mutate(
-    Time_seconds = as.numeric(as_hms(Time)),
-    Time_seconds = zoo::na.approx(Time_seconds, na.rm = FALSE),
-    Time = hms::as_hms(Time_seconds)
-  ) %>%
-  select(-Time_seconds)  # Remove helper column
 
 
 ########## Validate dataset to make sure it had cleaned ##########
