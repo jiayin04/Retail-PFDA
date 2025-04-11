@@ -76,6 +76,15 @@ preprocess <- function(retail_data) {
   retail_data <- retail_data |> mutate(across(all_of(factor_cols_to_clean), ~ na_if(., ""))) |> 
     mutate(across(all_of(factor_cols_to_clean), as.factor))
   
+  # Set ordered levels for factor variables
+  retail_data <- retail_data |>
+    mutate(
+      Income = factor(Income, levels = c("Low", "Medium", "High"), ordered = TRUE),
+      Customer_Segment = factor(Customer_Segment, levels = c("New", "Regular", "Premium"), ordered = TRUE),
+      Feedback = factor(Feedback, levels = c("Bad", "Average", "Good", "Excellent"), ordered = TRUE),
+      Ratings = factor(Ratings, levels = c("Low", "High"), ordered = TRUE)
+    )
+  
   
   ####### Handling missing values #######
   ## Check for missing values
@@ -206,12 +215,12 @@ preprocess <- function(retail_data) {
   ### ─────────────────────────────────────────────
   ### 9. Combine Date and Time to DateTime
   ### ─────────────────────────────────────────────
-  retail_data <- retail_data %>%
+  retail_data <- retail_data |>
     mutate(
       Date = as.Date(Date),
       Time = as_hms(Time),
       DateTime = as.POSIXct(paste(Date, Time), format="%Y-%m-%d %H:%M:%S", tz="UTC")
-    ) %>%
+    ) |>
     select(-Time, -Date)
   
   
@@ -256,4 +265,7 @@ retail_data_proc <- preprocess(retail_full_data)
 str(retail_data_proc)
 summary(retail_data_proc)
 View(retail_data_proc)
+
+
+
 
