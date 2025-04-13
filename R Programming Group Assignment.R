@@ -1,5 +1,7 @@
 ### ─────────────────────────────────────────────
 ### 1. Install and Load Packages
+
+
 ### ─────────────────────────────────────────────
 # Install packages
 install.packages(c("tidyr", "data.table", "dplyr", "ggplot2", "janitor", "missForest", "VIM", "zoo", "gender", "stringr", "mice"))
@@ -23,7 +25,7 @@ library(mice)
 ### 2. Set Working Directory & Load Dataset
 ### ─────────────────────────────────────────────
 # Set working directory
-WD <- "~/Custom Office Templates/Academic/Degree/Year 2 Sem 1/PfDA/Assignment/R Source Code" # Change to your WD
+WD <- "C:/Users/user/Desktop/Retail-PFDA" # Change to your WD
 if (!dir.exists(WD)) stop("Working directory does not exist!")
 
 # Import dataset
