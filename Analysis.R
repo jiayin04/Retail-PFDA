@@ -93,3 +93,97 @@ ggplot(data, aes(x = Purchase_Quantity, fill = Shipping_Method)) +
   labs(title = "Density of Purchase Quantity by Shipping Method",
        x = "Purchase Quantity", y = "Density") +
   theme_minimal()
+
+#2. Do different payment methods lead to significantly 
+#different purchasing behaviors?
+
+library(ggplot2)
+library(car)
+
+#a. Boxplot helps spot variance visually
+ggplot(data, aes(x = Payment_Method, y = Purchase_Quantity)) +
+  geom_boxplot(fill = "skyblue") +
+  labs(title = "Boxplot: Purchase Quantity by Payment Method") +
+  theme_minimal()
+
+#b. One-way Anova model
+anova_result <- aov(Purchase_Quantity ~ Payment_Method, data = data)
+summary(anova_result)
+
+#c. Levene's Test to check homogeneity of variance
+leveneTest(Purchase_Quantity ~ Payment_Method, data = data)
+
+#d. Post-hoc test
+TukeyHSD(anova_result)
+
+
+#3. Do payment and shipping methods, and their interaction,
+# significantly influence purchase quantity?
+
+#Load libraries
+library(ggplot2)
+library(dplyr)
+library(car)  # For Levene's Test
+
+#a. Boxplot
+ggplot(data, aes(x = interaction(Payment_Method, Shipping_Method), y = Purchase_Quantity)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Purchase Quantity by Payment & Shipping Methods",
+       x = "Payment x Shipping Method", y = "Purchase Quantity") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#b. Two-way Anova model 
+anova2 <- aov(Purchase_Quantity ~ Payment_Method * Shipping_Method, data = data)
+summary(anova2)
+
+#c. Levene's Test for Equal Variance 
+leveneTest(Purchase_Quantity ~ Payment_Method * Shipping_Method, data = data)
+
+#d. Interaction Plot for visualizing 
+interaction.plot(x.factor =  data$Payment_Method,
+                 trace.factor = data$Shipping_Method,
+                 response = data$Purchase_Quantity,
+                 fun = mean,
+                 type = "b",
+                 col = c("red", "blue", "green", "purple"),
+                 pch = 19,
+                 xlab = "Payment Method",
+                 ylab = "Mean Purchase Quantity",
+                 trace.label = "Shipping Method",
+                 main = "Interaction Plot: Payment x Shipping Method")
+
+
+#4. Is there a significant association between the choice of 
+#payment method and shipping method?
+
+#a. Create a contingency table
+table_4 <- table(data$Payment_Method, data$Shipping_Method)
+
+#b. View the table
+print(table_4)
+
+#c. Run chi-square test of independence
+chisq_result <- chisq.test(table_4)
+
+#d. View results
+print(chisq_result)
+
+#Load libaries
+library(ggplot2)
+library(dplyr)
+
+#e. Create a frequency table
+heatmap_data <- as.data.frame(table(data$Payment_Method, data$Shipping_Method))
+colnames(heatmap_data) <- c("Payment_Method", "Shipping_Method", "Frequency")
+
+#f. Plot heatmap
+ggplot(heatmap_data, aes(x = Payment_Method, y = Shipping_Method, fill = Frequency)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(title = "Heatmap of Payment vs Shipping Methods", x = "Payment Method", y = "Shipping Method") +
+  theme_minimal()
+
+
+
+
