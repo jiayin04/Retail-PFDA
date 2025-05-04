@@ -786,22 +786,7 @@ enhanced_data <- retail_data_proc |>
   # e. Brand-Category interaction
   mutate(
     Brand_Category_Combo = paste(Product_Brand, Product_Category, sep="_")
-  ) |>
-  
-  # f. Convert Income levels to numeric
-  mutate(
-    Income_Numeric = case_when(
-      Income == "Low" ~ 1,
-      Income == "Medium" ~ 2,
-      Income == "High" ~ 3,
-      TRUE ~ NA_real_
-    )
-  ) |>
-  
-  # g. Customer segment features
-  mutate(
-    Is_Premium = ifelse(Customer_Segment == "Premium", 1, 0)
-  )
+  ) 
 
 # Select final features for modeling
 model_data <- enhanced_data %>%
@@ -828,8 +813,6 @@ model_data <- enhanced_data %>%
     Brand_Category_Combo,
     
     # Customer features
-    Income_Numeric,
-    Is_Premium,
     Purchase_Amount_Ratio
   )
 
@@ -868,6 +851,9 @@ brand_ratings_plot <- ggplot(brand_ratings, aes(x = Product_Brand, y = percentag
   )
 print(brand_ratings_plot)
 
+# Check correlation of brand preferences
+chisq.test(table(model_data$Product_Brand, model_data$Ratings))
+
 # b. Purchase quantity pattern vs. Ratings
 quantity_ratings <- model_data |>
   group_by(Purchase_Quantity, Ratings) |>
@@ -875,7 +861,7 @@ quantity_ratings <- model_data |>
 
 # [Line Graph] Plot quantity vs ratings
 quantity_ratings_plot <- ggplot(quantity_ratings, aes(x = Purchase_Quantity, y = count, color = Ratings)) +
-  geom_line(size = 1.2) +
+  geom_line(linewidth=1.2) +
   scale_color_met_d("Derain") +
   labs(
     title = "Purchase Quantity Patterns by Customer Rating",
@@ -914,6 +900,8 @@ brand_loyalty_plot <- ggplot(model_data, aes(x = Brand_Loyalty_Score, fill = Rat
   )
 print(brand_loyalty_plot)
 
+# Check correlation of brand loyalty
+t.test(Brand_Loyalty_Score ~ Ratings, data = model_data)
 
 # Step 3: Train-Test Split
 train_index <- createDataPartition(model_data$Ratings, p = 0.8, list = FALSE)
@@ -1020,9 +1008,6 @@ abline(a = 0, b = 1, lty = 2, col = "gray")
 # Get feature importance from XGBoost
 xgb_importance <- xgb.importance(model = xgb_model)
 print(xgb_importance)
-
-# Plot feature importance
-xgb.plot.importance(xgb_importance, top_n = 10)
 
 # [Bar Chart] Customized feature importance plot
 importance_df <- as.data.frame(xgb_importance)
