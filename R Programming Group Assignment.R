@@ -297,7 +297,7 @@ library(MetBrewer)
 library(dplyr)
 library(tidyr)
 library(patchwork)
-
+library(reshape2)
 
 # [Histogram]
 # Base histogram for Purchase Quantity
@@ -337,6 +337,7 @@ final_hist_plot <- combined_plot_hist +
   plot_annotation(
     title = "Customer Behavior and Satisfaction Across Product Categories",
     subtitle = "Left: Purchase Quantity distribution | Right: Customer Ratings variation",
+    caption = "Source: Retail Dataset",
     theme = theme(
       plot.title = element_text(size = 16, face = "bold", hjust = 0),
       plot.subtitle = element_text(size = 11, hjust = 0)
@@ -346,64 +347,8 @@ final_hist_plot <- combined_plot_hist +
 # Display the final plot
 final_hist_plot
 
-
-# [Box Plot]
-# Base box plot for Purchase Quantity
-bp1 <- ggplot(manova_data, aes(x = Product_Category, y = Purchase_Quantity)) +
-  geom_boxplot(aes(fill = Product_Category), width = 0.6, outlier.shape = NA) +
-  scale_fill_met_d("Cassatt2") +
-  labs(x = "Product Category", y = "Purchase Quantity") +
-  theme_minimal()
-
-# Base box plot for Customer Ratings
-bp2 <- ggplot(manova_data, aes(x = Product_Category, y = Ratings_Num)) +
-  geom_boxplot(aes(fill = Product_Category), width = 0.6, outlier.shape = NA) +
-  scale_fill_met_d("Cassatt2") +
-  labs(x = "Product Category", y = "Satisfaction Score", fill = "Product Category") +
-  theme_minimal()
-
-# Styling function to add whisker caps
-styleBoxPlot <- function(p) {
-  bp_data <- ggplot_build(p)$data[[1]]
-  p +
-    geom_point(data = bp_data, aes(x = x, y = ymin),
-               shape = 21, size = 3, fill = "white", stroke = 1, color = "black") +
-    geom_point(data = bp_data, aes(x = x, y = ymax),
-               shape = 21, size = 3, fill = "white", stroke = 1, color = "black") +
-    theme(
-      axis.title = element_text(face = "bold")
-    )
-}
-
-# Apply styling and manage legends
-styled_bp1 <- styleBoxPlot(bp1) +
-  theme(legend.position = "none")
-
-styled_bp2 <- styleBoxPlot(bp2) +
-  theme(legend.position = "bottom")
-
-# Combine plots horizontally
-combined_plot <- styled_bp1 | styled_bp2
-
-# Add global title, subtitle, and unified layout
-final_plot <- combined_plot +
-  plot_annotation(
-    title = "Customer Behavior and Satisfaction Across Product Categories",
-    subtitle = "Left: Purchase Quantity distribution | Right: Customer Ratings variation",
-    theme = theme(
-      plot.title = element_text(size = 16, face = "bold", hjust = 0),
-      plot.subtitle = element_text(size = 11, hjust = 0)
-    )
-  )
-
-# Display the final plot
-final_plot
-
 # [Violin + Boxplot]
-library(ggplot2)
-library(MetBrewer)
-
-ggplot(manova_data, aes(x = Product_Category, y = Purchase_Quantity, fill = as.factor(Ratings))) +
+violin_boxplot <- ggplot(manova_data, aes(x = Product_Category, y = Purchase_Quantity, fill = as.factor(Ratings))) +
   geom_violin(trim = FALSE, alpha = 0.5, color = NA, position = position_dodge(width = 0.9)) +
   geom_boxplot(width = 0.1, position = position_dodge(width = 0.9),
                outlier.shape = NA, color = "black", alpha = 0.8) +
@@ -411,6 +356,7 @@ ggplot(manova_data, aes(x = Product_Category, y = Purchase_Quantity, fill = as.f
   labs(
     title = "Purchase Quantity Across Product Categories by Customer Ratings",
     subtitle = "Violin plots show distribution, while overlaid boxplots show quartiles and medians.",
+    caption = "Source: Retail Dataset",
     x = "Product Category",
     y = "Purchase Quantity",
     fill = "Ratings"
@@ -425,36 +371,32 @@ ggplot(manova_data, aes(x = Product_Category, y = Purchase_Quantity, fill = as.f
   )
 
 # [Density Plot]
-ggplot(manova_data, aes(x = Purchase_Quantity, fill = as.factor(Ratings_Num))) +
+density_plot <- ggplot(manova_data, aes(x = Purchase_Quantity, fill = as.factor(Ratings_Num))) +
   geom_density(alpha = 0.5) +
   facet_wrap(~Product_Category) +
   labs(
     title = "Density Distribution of Purchase Quantity by Product Category",
+    caption = "Source: Retail Dataset",
     x = "Purchase Quantity",
     y = "Density",
     fill = "Ratings"
   ) +
-  scale_fill_met_d("Cross") +  # Apply MetBrewer color palette
+  scale_fill_met_d("Cross") + 
   theme_minimal(base_size = 13) +
   theme(
-    plot.title = element_text(face = "bold", size = 16, hjust = 0),  # Title styling
-    plot.subtitle = element_text(size = 11, hjust = 0),  # Subtitle styling
-    axis.title = element_text(face = "bold"),  # Axis title styling
-    legend.position = "bottom",  # Legend position
-    legend.box = "horizontal",  # Make legend horizontal
-    strip.text = element_text(face = "bold", size = 13),  # Facet label styling
-    panel.grid.major = element_blank(),  # Remove major grid lines
-    panel.grid.minor = element_blank(),  # Remove minor grid lines
-    panel.spacing = unit(1, "lines")  # Space between facets
+    plot.title = element_text(face = "bold", size = 16, hjust = 0), 
+    plot.subtitle = element_text(size = 11, hjust = 0), 
+    axis.title = element_text(face = "bold"), 
+    legend.position = "bottom",
+    legend.box = "horizontal", 
+    strip.text = element_text(face = "bold", size = 13),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(), 
+    panel.spacing = unit(1, "lines")
   )
 
 
 # [Centroid Means Plot with Error Bars]
-library(dplyr)
-library(reshape2)
-library(ggplot2)
-library(MetBrewer)
-
 # Compute group means based on Product_Category
 manova_plot_data <- manova_data |> 
   group_by(Product_Category) |> 
@@ -467,28 +409,7 @@ manova_plot_data <- manova_data |>
 manova_melted <- melt(manova_plot_data, id.vars = "Product_Category")
 
 # Plot
-ggplot(manova_melted, aes(x = as.factor(Product_Category), y = value, fill = variable)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_fill_met_d("Thomas") +
-  # [Centroid Means Plot with Error Bars]
-library(dplyr)
-library(reshape2)
-library(ggplot2)
-library(MetBrewer)
-
-# Compute group means based on Product_Category
-manova_plot_data <- manova_data |> 
-  group_by(Product_Category) |> 
-  summarise(
-    Purchase_Quantity = mean(Purchase_Quantity, na.rm = TRUE),
-    Ratings = mean(as.numeric(Ratings), na.rm = TRUE)  # Convert ordered factor to numeric
-  )
-
-# Melt data to long format
-manova_melted <- melt(manova_plot_data, id.vars = "Product_Category")
-
-# Plot
-ggplot(manova_melted, aes(x = as.factor(Product_Category), y = value, fill = variable)) +
+meanPlot_errorBars <- ggplot(manova_melted, aes(x = as.factor(Product_Category), y = value, fill = variable)) +
   geom_bar(stat = "identity", position = "dodge") +
   scale_fill_met_d("Thomas") +
   geom_text(aes(label = round(value, 2)), 
@@ -496,6 +417,7 @@ ggplot(manova_melted, aes(x = as.factor(Product_Category), y = value, fill = var
             vjust = -0.5, size = 3) +
   labs(
     title = "Mean Purchase Quantity and Ratings by Product Category",
+    caption = "Source: Retail Dataset",
     x = "Product Category (Product Preference)",
     y = "Mean Value",
     fill = "Variable"
@@ -537,6 +459,16 @@ create_summary <- function(data, group_by_col) {
   return(summary)
 }
 
+# summary
+ratings_summary_cat <- create_summary(retail_data_proc, "Product_Category")
+ratings_summary_brand <- create_summary(retail_data_proc, "Product_Brand")
+
+summary(ratings_summary_cat)
+summary(ratings_summary_brand)
+
+
+## ----------- Visualization ----------------##
+# [Polar Chart]
 # Function to plot the polar chart
 plot_polar_chart <- function(summary_data, group_by_col) {
   # Rescale avg_age to match rating_count scale for better point visibility
@@ -616,13 +548,6 @@ theme_setting <- function(plot, group_by_col) {
     )
 }
 
-# Product
-ratings_summary_cat <- create_summary(retail_data_proc, "Product_Category")
-ratings_summary_brand <- create_summary(retail_data_proc, "Product_Brand")
-
-summary(ratings_summary_cat)
-summary(ratings_summary_brand)
-
 # Category
 cat_radar <- theme_setting(plot_polar_chart(ratings_summary_cat, "Product_Category"), "Product Category")
 # Brand
@@ -633,7 +558,7 @@ brand_radar <- theme_setting(plot_polar_chart(ratings_summary_brand, "Product_Br
   plot_annotation(
     title = "Distribution of Customer Ratings Across Product Segment",
     subtitle = "Visual comparison of rating count, total purchase, and average customer age by category and brand",
-    caption = "Source: Retail Transaction Dataset | Units scaled for readability"
+    caption = "Source: Retail Dataset | Units scaled for readability"
   )
 
 
@@ -672,6 +597,7 @@ pair_by_rating_top <- pair_by_rating_wide |>
   arrange(desc(Total)) |>
   slice_head(n = 15)
 
+## ----------- Visualization ----------------##
 # [BAR PLOT]
 bar_plot <- ggplot(pair_by_rating_top_long, aes(x = pair, y = Count, fill = Rating)) +
   geom_bar(stat = "identity", position = "dodge", width = 0.7) +
@@ -698,8 +624,6 @@ bar_plot <- ggplot(pair_by_rating_top_long, aes(x = pair, y = Count, fill = Rati
     legend.position = "bottom"
   ) +
   expand_limits(y = max(pair_by_rating_top_long$Count) * 1.15)
-
-print(bar_plot)
 
 # [HEATMAP]
 # Prepare symmetric heatmap input
@@ -734,8 +658,6 @@ heatmap_plot <- ggplot(pair_matrix, aes(x = Product1, y = Product2, fill = Count
     strip.text = element_text(face = "bold", size = 13),
     legend.position = "bottom"
   )
-
-print(heatmap_plot)
 
 
 ### ─────────────────────────────────────────────
@@ -849,7 +771,6 @@ brand_ratings_plot <- ggplot(brand_ratings, aes(x = Product_Brand, y = percentag
     axis.title = element_text(face = "bold"),
     legend.position = "bottom"
   )
-print(brand_ratings_plot)
 
 # Check correlation of brand preferences
 chisq.test(table(model_data$Product_Brand, model_data$Ratings))
@@ -877,8 +798,6 @@ quantity_ratings_plot <- ggplot(quantity_ratings, aes(x = Purchase_Quantity, y =
     axis.title = element_text(face = "bold"),
     legend.position = "bottom"
   )
-print(quantity_ratings_plot)
-
 
 # c. [Density Plot] Brand loyalty vs. Ratings
 brand_loyalty_plot <- ggplot(model_data, aes(x = Brand_Loyalty_Score, fill = Ratings)) +
@@ -898,7 +817,6 @@ brand_loyalty_plot <- ggplot(model_data, aes(x = Brand_Loyalty_Score, fill = Rat
     axis.title = element_text(face = "bold"),
     legend.position = "bottom"
   )
-print(brand_loyalty_plot)
 
 # Check correlation of brand loyalty
 t.test(Brand_Loyalty_Score ~ Ratings, data = model_data)
@@ -1000,7 +918,7 @@ roc_obj <- roc(test_data$Ratings, xgb_prob)
 auc_val <- auc(roc_obj)
 cat("AUC:", round(auc_val, 4), "\n\n")
 
-# Plot ROC curve
+# Plot [ROC curve]
 plot(roc_obj, main = "XGBoost ROC Curve", col = "blue")
 abline(a = 0, b = 1, lty = 2, col = "gray")
 
@@ -1071,9 +989,6 @@ brand_loyalty_plot <- ggplot(brand_loyalty_effect,
     panel.grid.minor = element_blank()
   )
 
-print(brand_loyalty_plot)
-
-
 
 ### ─────────────────────────────────────────────
 ### 15. Are there clusters of customers who show consistent brand preferences, high purchase behavior, and high satisfaction?
@@ -1082,6 +997,9 @@ print(brand_loyalty_plot)
 # a) Load required libraries
 library(dplyr)
 library(caret)
+library(ggplot2)
+library(plotly)
+library(dendextend)
 
 ## b) Prepare Data
 customer_cluster_data <- retail_data_proc %>%
@@ -1127,8 +1045,6 @@ print(cluster_summary)
 
 
 ## ----------- Visualization ----------------##
-library(ggplot2)
-
 # [Plot the Elbow Method]
 elbow_data <- data.frame(K = 1:15, WSS = wss)
 elbow_method_plot <- ggplot(elbow_data, aes(K, WSS)) +
@@ -1145,8 +1061,6 @@ print(elbow_method_plot)
 ## Perform PCA for Dimensional Reduction
 pca_result <- prcomp(customer_cluster_data_scaled)
 pca_data <- data.frame(pca_result$x)
-
-library(plotly)
 
 plot_ly(
   pca_data,
@@ -1176,9 +1090,6 @@ plot_ly(
 
 
 # [Barplot]
-library(ggplot2)
-library(dplyr)
-
 # Create a numeric version of Ratings for averaging (Low = 1, High = 2)
 customer_cluster_data$Rating_Num <- ifelse(customer_cluster_data$Ratings == "High", 2, 1)
 
@@ -1223,10 +1134,7 @@ ggplot(brand_cluster_summary, aes(x = factor(Product_Brand), y = Avg_Purchase, f
   )
 
 ### [Hierarchical Clustering]
-library(dendextend)
-
 set.seed(123)
-
 # Create a smaller sample
 sample_indices <- sample(1:nrow(customer_cluster_data_scaled), 40)
 
@@ -1238,8 +1146,6 @@ labels(dend) <- customer_cluster_data$Product_Brand[sample_indices]
 
 # Color branches by cluster
 dend_colored <- color_branches(dend, k = 3)
-
-# Plot with labels and colored branches
 
 # Plot horizontally for better readability
 plot(dend_colored,
