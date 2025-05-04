@@ -108,6 +108,45 @@ anova_rating <- aov(Ratings_numeric ~ Country, data = data)
 summary(anova_rating)
 
 
+# Geospatial analysis
+# Load libraries
+library(tidyverse)
+library(tidygeocoder)  # For OpenStreetMap geocoding
+library(leaflet)       # For interactive map
+
+# Step 1: Get unique cities
+unique_cities <- data %>%
+  select(City, State, Country) %>%
+  distinct() %>%
+  mutate(full_address = paste(City, State, Country, sep = ", "))
+
+# Step 2: Geocode using Nominatim (OpenStreetMap)
+geocoded_cities <- unique_cities %>%
+  geocode(address = full_address, method = "osm", lat = latitude, long = longitude)
+
+# Step 3: Merge coordinates back into the main data
+data_with_coords <- data %>%
+  left_join(geocoded_cities, by = c("City", "State", "Country"))
+
+# Step 4: Check any failed geocoding
+failed <- data_with_coords %>% filter(is.na(latitude) | is.na(longitude))
+print(failed)
+
+# Step 5: Visualize on a map with Ratings
+leaflet(data_with_coords) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addCircleMarkers(
+    lng = ~longitude, lat = ~latitude,
+    color = ~ifelse(Ratings == "High", "blue", "red"),
+    popup = ~paste0(City, ", ", Country, "<br>Rating: ", Ratings),
+    radius = 4,
+    fillOpacity = 0.7
+  ) %>%
+  addLegend(position = "bottomright", colors = c("blue", "red"),
+            labels = c("High Rating", "Low Rating"), title = "Customer Ratings")
+
+
+
 # Analysis 2: Are certain product categories, brands, and types 
 #more popular in specific countries?
 
@@ -236,9 +275,6 @@ ggplot(data, aes(x = Country, fill = Shipping_Method)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_fill_viridis(discrete = TRUE)
-
-
-
 
 
 
