@@ -335,7 +335,7 @@ combined_plot_hist <- styled_hist1 | styled_hist2
 # Add global title, subtitle, and unified layout
 final_hist_plot <- combined_plot_hist +
   plot_annotation(
-    title = "Customer Behavior and Satisfaction Across Product Categories",
+    title = "Purchasing Behavior and Satisfaction Across Product Categories",
     subtitle = "Left: Purchase Quantity distribution | Right: Customer Ratings variation",
     caption = "Source: Retail Dataset",
     theme = theme(
@@ -397,26 +397,35 @@ density_plot <- ggplot(manova_data, aes(x = Purchase_Quantity, fill = as.factor(
 
 
 # [Centroid Means Plot with Error Bars]
-# Compute group means based on Product_Category
+# Compute group means & SD based on Product_Category
 manova_plot_data <- manova_data |> 
   group_by(Product_Category) |> 
   summarise(
-    Purchase_Quantity = mean(Purchase_Quantity, na.rm = TRUE),
-    Ratings = mean(as.numeric(Ratings), na.rm = TRUE)  # Convert ordered factor to numeric
+    Purchase_Quantity_Mean = mean(Purchase_Quantity, na.rm = TRUE),
+    Purchase_Quantity_SE = sd(Purchase_Quantity, na.rm = TRUE) / sqrt(n()),
+    Ratings_Mean = mean(as.numeric(Ratings), na.rm = TRUE),
+    Ratings_SE = sd(as.numeric(Ratings), na.rm = TRUE) / sqrt(n())
   )
 
 # Melt data to long format
 manova_melted <- melt(manova_plot_data, id.vars = "Product_Category")
+manova_melted$value_type <- ifelse(grepl("_SE", manova_melted$variable), "SE", "Mean")
+manova_melted$variable <- gsub("_SE|_Mean", "", manova_melted$variable)
 
-# Plot
-meanPlot_errorBars <- ggplot(manova_melted, aes(x = as.factor(Product_Category), y = value, fill = variable)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_fill_met_d("Thomas") +
-  geom_text(aes(label = round(value, 2)), 
+# Reshape to wide so each row has both mean and SE
+manova_final <- reshape2::dcast(manova_melted, Product_Category + variable ~ value_type, value.var = "value")
+
+ggplot(manova_final, aes(x = Product_Category, y = Mean, fill = variable)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), 
+                position = position_dodge(width = 0.9), 
+                width = 0.2) +
+  geom_text(aes(label = round(Mean, 2)), 
             position = position_dodge(width = 0.9), 
             vjust = -0.5, size = 3) +
+  scale_fill_met_d("Thomas") +
   labs(
-    title = "Mean Purchase Quantity and Ratings by Product Category",
+    title = "Mean Purchase Quantity and Ratings with Error Bars by Product Category",
     caption = "Source: Retail Dataset",
     x = "Product Category (Product Preference)",
     y = "Mean Value",
@@ -429,10 +438,7 @@ meanPlot_errorBars <- ggplot(manova_melted, aes(x = as.factor(Product_Category),
 ### 13. How does the co-purchasing behaviour across product categories influence customer ratings?
 ### ─────────────────────────────────────────────
 ## a. Descriptive Analysis of Customer Ratings by Product Category
-library(patchwork)
 library(dplyr)
-library(ggplot2)
-library(MetBrewer)
 
 # Function to create summary for either Product Category or Brand
 create_summary <- function(data, group_by_col) {
@@ -468,6 +474,9 @@ summary(ratings_summary_brand)
 
 
 ## ----------- Visualization ----------------##
+library(patchwork)
+library(ggplot2)
+library(MetBrewer)
 # [Polar Chart]
 # Function to plot the polar chart
 plot_polar_chart <- function(summary_data, group_by_col) {
@@ -567,7 +576,6 @@ brand_radar <- theme_setting(plot_polar_chart(ratings_summary_brand, "Product_Br
 library(dplyr)
 library(tidyr)
 library(purrr)
-library(ggplot2)
 
 # Check rating distribution
 retail_data_proc |> count(Ratings)
@@ -597,7 +605,11 @@ pair_by_rating_top <- pair_by_rating_wide |>
   arrange(desc(Total)) |>
   slice_head(n = 15)
 
+print(pair_by_rating_top)
+
 ## ----------- Visualization ----------------##
+library(ggplot2)
+library(MetBrewer)
 # [BAR PLOT]
 bar_plot <- ggplot(pair_by_rating_top_long, aes(x = pair, y = Count, fill = Rating)) +
   geom_bar(stat = "identity", position = "dodge", width = 0.7) +
@@ -997,9 +1009,6 @@ brand_loyalty_plot <- ggplot(brand_loyalty_effect,
 # a) Load required libraries
 library(dplyr)
 library(caret)
-library(ggplot2)
-library(plotly)
-library(dendextend)
 
 ## b) Prepare Data
 customer_cluster_data <- retail_data_proc %>%
@@ -1045,11 +1054,15 @@ print(cluster_summary)
 
 
 ## ----------- Visualization ----------------##
+library(ggplot2)
+library(plotly)
+library(MetBrewer)
+library(dendextend)
 # [Plot the Elbow Method]
 elbow_data <- data.frame(K = 1:15, WSS = wss)
 elbow_method_plot <- ggplot(elbow_data, aes(K, WSS)) +
   geom_point(size = 3, color = "#2C3E50") +
-  geom_line(color = "#2980B9") +
+  geom_line() +
   labs(title = "Elbow Method for Optimal Number of Clusters",
        x = "Number of Clusters (K)", y = "Total within-cluster sum of squares", subtitle = "") +
   theme_minimal(base_size = 14) +
@@ -1099,7 +1112,6 @@ brand_cluster_summary <- customer_cluster_data %>%
   summarise(
     Avg_Purchase = mean(Purchase_Quantity),
     Avg_Rating = mean(Rating_Num),
-    Count = n(),
     .groups = 'drop'
   )
 
