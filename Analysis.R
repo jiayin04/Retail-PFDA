@@ -155,7 +155,7 @@ library(dplyr)
 library(ggplot2)
 library(viridis)
 
-# STEP 1: Frequency Tables
+# a. Frequency Tables
 
 # Product Category by Country
 table_category <- table(data$Country, data$Product_Category)
@@ -169,7 +169,7 @@ print(table_brand)
 table_type <- table(data$Country, data$Product_Type)
 print(table_type)
 
-# STEP 2: Chi-square Tests
+# b. Chi-square Tests
 
 # Chi-square test for Product Category vs Country
 chi_category <- chisq.test(table_category)
@@ -183,7 +183,7 @@ print(chi_brand)
 chi_type <- chisq.test(table_type)
 print(chi_type)
 
-# STEP 3: Proportional Bar Plots for Visualization
+# c. Proportional Bar Plots for Visualization
 
 # Product Category by Country
 ggplot(data, aes(x = Country, fill = Product_Category)) +
@@ -220,7 +220,7 @@ library(dplyr)
 library(ggplot2)
 library(viridis)
 
-# STEP 1: Frequency Tables for Payment Method and Shipping Method by Country
+# a. Frequency Tables for Payment Method and Shipping Method by Country
 
 # Payment Method by Country
 table_payment <- table(data$Country, data$Payment_Method)
@@ -230,7 +230,7 @@ print(table_payment)
 table_shipping <- table(data$Country, data$Shipping_Method)
 print(table_shipping)
 
-# STEP 2: Chi-square Tests
+# b. Chi-square Tests
 
 # Chi-square test for Payment Method vs Country
 chi_payment <- chisq.test(table_payment)
@@ -240,7 +240,7 @@ print(chi_payment)
 chi_shipping <- chisq.test(table_shipping)
 print(chi_shipping)
 
-# STEP 3: Visualizations for Payment Method and Shipping Method
+# c. Visualizations for Payment Method and Shipping Method
 
 # 1. Payment Method by Country (Proportional Bar Plot)
 ggplot(data, aes(x = Country, fill = Payment_Method)) +
@@ -276,6 +276,108 @@ ggplot(data, aes(x = Country, fill = Shipping_Method)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_fill_viridis(discrete = TRUE)
 
+# Load necessary libraries
+library(randomForest)
+library(caret)
+library(ggplot2)
+library(viridis)
+library(dplyr)
+library(pdp)
 
+# Assuming 'data' is the retail_data_proc dataset from your code
+# Let's prepare the data for modeling
+
+# a. Select relevant features for predicting customer ratings
+# We'll use product details, payment method, shipping method, and country
+
+model_data <- data %>%
+  # Select relevant columns for our model
+  select(Ratings, Country, Product_Category, Product_Brand, Product_Type, 
+         Payment_Method, Shipping_Method) %>%
+  # Remove any rows with missing values
+  na.omit()
+
+# b. Convert the target variable to a factor (for classification)
+model_data$Ratings <- as.factor(model_data$Ratings)
+
+# c. Convert all categorical variables to factors
+model_data <- model_data %>%
+  mutate_if(is.character, as.factor)
+
+# d. Split data into training and testing sets (80/20 split)
+set.seed(123) # For reproducibility
+train_index <- createDataPartition(model_data$Ratings, p = 0.8, list = FALSE)
+train_data <- model_data[train_index, ]
+test_data <- model_data[-train_index, ]
+
+# e. Build Random Forest model
+rf_model <- randomForest(
+  Ratings ~ ., 
+  data = train_data,
+  ntree = 100,       # Number of trees
+  importance = TRUE  # Calculate variable importance
+)
+
+# f. Print model summary
+print(rf_model)
+
+# g. Evaluate model performance
+# Make predictions on test data
+predictions <- predict(rf_model, test_data)
+
+# Create confusion matrix
+conf_matrix <- confusionMatrix(predictions, test_data$Ratings)
+print(conf_matrix)
+
+# h. Variable importance
+var_importance <- importance(rf_model)
+print(var_importance)
+
+# i. Plot variable importance
+varImpPlot(rf_model, main = "Variable Importance")
+
+# j. Plot variable importance using ggplot2 for better visualization
+importance_df <- as.data.frame(importance(rf_model))
+importance_df$Variable <- rownames(importance_df)
+
+# Sort by MeanDecreaseGini
+importance_df <- importance_df %>%
+  arrange(desc(MeanDecreaseGini))
+
+# Plot variable importance
+ggplot(importance_df, aes(x = reorder(Variable, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_bar(stat = "identity", fill = viridis(1)) +
+  coord_flip() +
+  labs(title = "Variable Importance in Random Forest Model",
+       x = "Variables",
+       y = "Mean Decrease in Gini Index") +
+  theme_minimal()
+
+# k. Analyze feature interactions (partial dependence plots)
+# For the most important categorical variable
+most_important_var <- importance_df$Variable[1]
+if(most_important_var %in% names(train_data)) {
+  pdp_plot <- partial(rf_model, pred.var = most_important_var, plot = TRUE)
+  print(pdp_plot)
+}
+
+# l. Predict ratings for different countries
+country_ratings <- data.frame(Country = unique(model_data$Country))
+for(country in unique(model_data$Country)) {
+  country_data <- model_data[model_data$Country == country, ]
+  high_rating_pct <- mean(predict(rf_model, country_data) == "High") * 100
+  cat(paste0("Predicted high rating percentage for ", country, ": ", 
+             round(high_rating_pct, 2), "%\n"))
+}
+
+
+# m. Final performance metrics
+final_metrics <- data.frame(
+  Accuracy = conf_matrix$overall["Accuracy"],
+  Sensitivity = conf_matrix$byClass["Sensitivity"],
+  Specificity = conf_matrix$byClass["Specificity"],
+  Precision = conf_matrix$byClass["Pos Pred Value"]
+)
+print(final_metrics)
 
 
