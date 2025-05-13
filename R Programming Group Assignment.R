@@ -267,14 +267,11 @@ str(retail_data_proc)
 summary(retail_data_proc)
 View(retail_data_proc)
 
-
-
 ### ─────────────────────────────────────────────
 ### 12. How does product preference influence purchasing behavior and customer satisfaction?
 ### ─────────────────────────────────────────────
 # i) Analysis technique - MANOVA
 library(dplyr)
-library(factoextra)
 ## a. Subset data for manova analysis
 manova_data <- retail_data_proc |> select(Ratings, Purchase_Quantity, Product_Category) |> mutate(
   ## b. Make ratings numeric
@@ -300,34 +297,31 @@ library(patchwork)
 library(reshape2)
 
 # [Histogram]
-# Base histogram for Purchase Quantity
-hist1 <- ggplot(manova_data, aes(x = Purchase_Quantity, fill = Product_Category)) +
-  geom_histogram(bins = 20, alpha = 0.7, position = "dodge", color = "black") +
-  scale_fill_met_d("Cassatt2") +
-  labs(x = "Purchase Quantity", y = "Count") +
-  theme_minimal()
-
-# Base histogram for Customer Ratings
-hist2 <- ggplot(manova_data, aes(x = Ratings_Num, fill = Product_Category)) +
-  geom_histogram(bins = 5, alpha = 0.7, position = "dodge", color = "black") +
-  scale_fill_met_d("Cassatt2") +
-  labs(x = "Satisfaction Score", y = "Count", fill = "Product Category") +
-  theme_minimal()
-
-# Styling function to add bars
-styleHistogram <- function(p) {
-  p + 
+# Style function
+styleHistogram <- function() {
+  list(
+    theme_minimal(base_size = 12),
     theme(
       axis.title = element_text(face = "bold"),
       legend.position = "bottom"
     )
+  )
 }
 
-# Apply styling and manage legends
-styled_hist1 <- styleHistogram(hist1) +
+# Base histogram of Purchase Quantity
+hist1 <- ggplot(manova_data, aes(x = Purchase_Quantity, fill = Product_Category)) +
+  geom_histogram(bins = 20, alpha = 0.7, position = "dodge", color = "black") +
+  scale_fill_met_d("Cassatt2") +
+  labs(x = "Purchase Quantity", y = "Count") +
+  styleHistogram() +
   theme(legend.position = "none")
 
-styled_hist2 <- styleHistogram(hist2)
+# Base histogram of Ratings histogram
+hist2 <- ggplot(manova_data, aes(x = Ratings_Num, fill = Product_Category)) +
+  geom_histogram(binwidth = 1, alpha = 0.7, position = "dodge", color = "black") +
+  scale_fill_met_d("Cassatt2") +
+  labs(x = "Satisfaction Score", y = "Count", fill = "Product Category") +
+  styleHistogram()
 
 # Combine plots horizontally
 combined_plot_hist <- styled_hist1 | styled_hist2
@@ -346,6 +340,7 @@ final_hist_plot <- combined_plot_hist +
 
 # Display the final plot
 final_hist_plot
+
 
 # [Violin + Boxplot]
 violin_boxplot <- ggplot(manova_data, aes(x = Product_Category, y = Purchase_Quantity, fill = as.factor(Ratings))) +
@@ -370,69 +365,48 @@ violin_boxplot <- ggplot(manova_data, aes(x = Product_Category, y = Purchase_Qua
     legend.box = "horizontal"
   )
 
-# [Density Plot]
-density_plot <- ggplot(manova_data, aes(x = Purchase_Quantity, fill = as.factor(Ratings_Num))) +
-  geom_density(alpha = 0.5) +
-  facet_wrap(~Product_Category) +
-  labs(
-    title = "Density Distribution of Purchase Quantity by Product Category",
-    caption = "Source: Retail Dataset",
-    x = "Purchase Quantity",
-    y = "Density",
-    fill = "Ratings"
-  ) +
-  scale_fill_met_d("Cross") + 
-  theme_minimal(base_size = 13) +
-  theme(
-    plot.title = element_text(face = "bold", size = 16, hjust = 0), 
-    plot.subtitle = element_text(size = 11, hjust = 0), 
-    axis.title = element_text(face = "bold"), 
-    legend.position = "bottom",
-    legend.box = "horizontal", 
-    strip.text = element_text(face = "bold", size = 13),
-    panel.grid.major = element_blank(), 
-    panel.grid.minor = element_blank(), 
-    panel.spacing = unit(1, "lines")
-  )
-
+violin_boxplot
 
 # [Centroid Means Plot with Error Bars]
-# Compute group means & SD based on Product_Category
-manova_plot_data <- manova_data |> 
-  group_by(Product_Category) |> 
-  summarise(
-    Purchase_Quantity_Mean = mean(Purchase_Quantity, na.rm = TRUE),
-    Purchase_Quantity_SE = sd(Purchase_Quantity, na.rm = TRUE) / sqrt(n()),
-    Ratings_Mean = mean(as.numeric(Ratings), na.rm = TRUE),
-    Ratings_SE = sd(as.numeric(Ratings), na.rm = TRUE) / sqrt(n())
+# Calculate means and standard errors based on Product Category
+plot_data <- manova_data |>
+  group_by(Product_Category) |>
+  summarize(
+    Purchase_Mean = mean(Purchase_Quantity),
+    Purchase_SE = sd(Purchase_Quantity)/sqrt(n()),
+    Rating_Mean = mean(Ratings_Num),
+    Rating_SE = sd(Ratings_Num)/sqrt(n())
+  ) |>
+  tidyr::pivot_longer(
+    cols = -Product_Category,
+    names_to = c("Variable", ".value"),
+    names_sep = "_"
   )
 
-# Melt data to long format
-manova_melted <- melt(manova_plot_data, id.vars = "Product_Category")
-manova_melted$value_type <- ifelse(grepl("_SE", manova_melted$variable), "SE", "Mean")
-manova_melted$variable <- gsub("_SE|_Mean", "", manova_melted$variable)
-
-# Reshape to wide so each row has both mean and SE
-manova_final <- reshape2::dcast(manova_melted, Product_Category + variable ~ value_type, value.var = "value")
-
-ggplot(manova_final, aes(x = Product_Category, y = Mean, fill = variable)) +
-  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE), 
-                position = position_dodge(width = 0.9), 
-                width = 0.2) +
-  geom_text(aes(label = round(Mean, 2)), 
-            position = position_dodge(width = 0.9), 
-            vjust = -0.5, size = 3) +
+# Create the plot
+cm_plot <- ggplot(plot_data, aes(x = Product_Category, y = Mean, fill = Variable)) +
+  geom_col(position = position_dodge(width = 0.9)) +
+  geom_errorbar(
+    aes(ymin = Mean - SE, ymax = Mean + SE),
+    position = position_dodge(width = 0.9),
+    width = 0.2
+  ) +
+  geom_text(
+    aes(label = round(Mean, 2)),
+    position = position_dodge(width = 0.9),
+    vjust = -0.5, size = 3
+  ) +
   scale_fill_met_d("Thomas") +
   labs(
-    title = "Mean Purchase Quantity and Ratings with Error Bars by Product Category",
-    caption = "Source: Retail Dataset",
-    x = "Product Category (Product Preference)",
-    y = "Mean Value",
-    fill = "Variable"
+    title = "Average Purchase Quantity and Ratings by Product Category",
+    x = "Product Category",
+    y = "Mean Value ± SE",
+    fill = "Variables",
+    caption = "Source: Retail Dataset"
   ) +
   theme_minimal()
 
+cm_plot
 
 ### ─────────────────────────────────────────────
 ### 13. How does the co-purchasing behaviour across product categories influence customer ratings?
@@ -454,7 +428,7 @@ create_summary <- function(data, group_by_col) {
   avg_age_summary <- data |>
     group_by(!!sym(group_by_col)) |>
     summarize(
-      avg_age = mean(Age, na.rm = TRUE),
+      avg_age = mean(Age),
       .groups = 'drop'
     )
   
@@ -562,14 +536,15 @@ cat_radar <- theme_setting(plot_polar_chart(ratings_summary_cat, "Product_Catego
 # Brand
 brand_radar <- theme_setting(plot_polar_chart(ratings_summary_brand, "Product_Brand"), "Product Brand")
 
-
-(cat_radar | brand_radar) +
+# final plot
+combined_radar_plot <- (cat_radar | brand_radar) +
   plot_annotation(
     title = "Distribution of Customer Ratings Across Product Segment",
     subtitle = "Visual comparison of rating count, total purchase, and average customer age by category and brand",
     caption = "Source: Retail Dataset | Units scaled for readability"
   )
 
+combined_radar_plot
 
 ## b. Market Basket Analysis[Co-purchasing Behavior] 
 # Load necessary libraries
@@ -673,333 +648,238 @@ heatmap_plot <- ggplot(pair_matrix, aes(x = Product1, y = Product2, fill = Count
 
 
 ### ─────────────────────────────────────────────
-### 13. Can customer satisfaction be explained by a combination of brand preference and purchasing behavior across different product categories?
+### 14. Can customer satisfaction be explained by a combination of brand preference and purchasing behavior across different product categories?
 ### ─────────────────────────────────────────────
-# Load required libraries
-library(dplyr)
-library(tidyr)
-library(caret)
+# Load necessary libraries
+library(randomForest)
 library(xgboost)
+library(dplyr)
+library(caret)
 library(pROC)
-library(ggplot2)
-library(smotefamily)
-library(MetBrewer)
 
-# Setting seed for reproducibility
-set.seed(123)
-
-# Step 1: Feature engineering focused on brand preference and purchase behavior
-# Create a comprehensive feature set
-enhanced_data <- retail_data_proc |>
-  # Group by customer to create customer-level features
-  group_by(Customer_ID) |>
+# Step 1: Prepare model data
+model_data <- retail_data_proc |>
   mutate(
-    # a. Brand loyalty features
-    Total_Customer_Purchases = n(),
-    Brand_Purchase_Count = sum(Product_Brand == first(Product_Brand)),
-    Brand_Loyalty_Score = Brand_Purchase_Count / Total_Customer_Purchases,
-    
-    # b. Category preference
-    Category_Purchase_Count = sum(Product_Category == first(Product_Category)),
-    Category_Preference_Score = Category_Purchase_Count / Total_Customer_Purchases,
-    
-    # c. Price sensitivity
-    Avg_Amount_Per_Purchase = mean(Amount, na.rm = TRUE),
-    Purchase_Amount_Ratio = ifelse(Avg_Amount_Per_Purchase > 0, 
-                                   Amount / Avg_Amount_Per_Purchase, 
-                                   NA),
-    
-    # d. Purchase quantity patterns
-    Quantity_Mod2 = Purchase_Quantity %% 2,  # Capture even/odd pattern
-    Quantity_Mod5 = Purchase_Quantity %% 5,  # Capture 5-unit pattern
-    Quantity_Sin = sin(Purchase_Quantity * pi/2.5),  # Wave pattern
-    Quantity_Cos = cos(Purchase_Quantity * pi/2.5)   # Wave pattern
+    Total_Purchase = Amount * Purchase_Quantity
   ) |>
-  ungroup() |>
-  
-  # e. Brand-Category interaction
-  mutate(
-    Brand_Category_Combo = paste(Product_Brand, Product_Category, sep="_")
-  ) 
-
-# Select final features for modeling
-model_data <- enhanced_data %>%
   select(
-    # Target variable
     Ratings,
-    
-    # Brand preference features
+    Customer_ID,
     Product_Brand,
-    Brand_Loyalty_Score,
-    
-    # Purchase behavior features
-    Purchase_Quantity,
-    Quantity_Mod2,
-    Quantity_Mod5,
-    Quantity_Sin,
-    Quantity_Cos,
-    
-    # Category features
     Product_Category,
-    Category_Preference_Score,
-    
-    # Interaction features
-    Brand_Category_Combo,
-    
-    # Customer features
-    Purchase_Amount_Ratio
+    Purchase_Quantity,
+    Amount,
+    Total_Purchase
   )
-
-# Convert categorical variables to factors
-model_data$Ratings <- factor(model_data$Ratings, levels = c("Low", "High"))
-model_data$Product_Brand <- as.factor(model_data$Product_Brand)
-model_data$Product_Category <- as.factor(model_data$Product_Category)
-model_data$Brand_Category_Combo <- as.factor(model_data$Brand_Category_Combo)
-
 
 # Step 2: Exploratory Data Analysis of key relationships
-
-# a. Brand preference vs. Ratings
-brand_ratings <- model_data |>
-  group_by(Product_Brand, Ratings) |>
-  summarise(count = n(), .groups = 'drop') |>
-  group_by(Product_Brand) |>
-  mutate(percentage = count / sum(count) * 100)
-
-# [Bar chart] Plot brand ratings
-brand_ratings_plot <- ggplot(brand_ratings, aes(x = Product_Brand, y = percentage, fill = Ratings)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  labs(title = "Customer Satisfaction by Product Brand", 
-       subtitle = "Ratings distribution by brand (in %)",
-       x = "Product Brand", 
-       y = "Percentage (%)", 
-       fill = "Customer Rating") +
-  theme_minimal(base_size = 13) +
-  scale_fill_met_d("Derain") +
-  theme(
-    plot.title = element_text(face = "bold", size = 16),
-    plot.subtitle = element_text(size = 11),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    axis.title = element_text(face = "bold"),
-    legend.position = "bottom"
-  )
-
-# Check correlation of brand preferences
+# Check correlation of brand preferences, Purchase Quantity & Product Category
 chisq.test(table(model_data$Product_Brand, model_data$Ratings))
+chisq.test(table(model_data$Purchase_Quantity, model_data$Ratings))
+chisq.test(table(model_data$Product_Category, model_data$Ratings))
 
-# b. Purchase quantity pattern vs. Ratings
-quantity_ratings <- model_data |>
-  group_by(Purchase_Quantity, Ratings) |>
-  summarise(count = n(), .groups = 'drop')
-
-# [Line Graph] Plot quantity vs ratings
-quantity_ratings_plot <- ggplot(quantity_ratings, aes(x = Purchase_Quantity, y = count, color = Ratings)) +
-  geom_line(linewidth=1.2) +
-  scale_color_met_d("Derain") +
-  labs(
-    title = "Purchase Quantity Patterns by Customer Rating",
-    subtitle = "Line chart of rating frequency per quantity ordered",
-    x = "Purchase Quantity",
-    y = "Number of Orders",
-    color = "Customer Rating"
-  ) +
-  theme_minimal(base_size = 13) +
-  theme(
-    plot.title = element_text(face = "bold", size = 16),
-    plot.subtitle = element_text(size = 11),
-    axis.title = element_text(face = "bold"),
-    legend.position = "bottom"
-  )
-
-# c. [Density Plot] Brand loyalty vs. Ratings
-brand_loyalty_plot <- ggplot(model_data, aes(x = Brand_Loyalty_Score, fill = Ratings)) +
-  geom_density(alpha = 0.5) +
-  scale_fill_met_d("Java") +
-  labs(
-    title = "Distribution of Brand Loyalty Scores by Rating",
-    subtitle = "Smoothed density plots grouped by customer rating",
-    x = "Brand Loyalty Score",
-    y = "Density",
-    fill = "Customer Rating"
-  ) +
-  theme_minimal(base_size = 13) +
-  theme(
-    plot.title = element_text(face = "bold", size = 16),
-    plot.subtitle = element_text(size = 11),
-    axis.title = element_text(face = "bold"),
-    legend.position = "bottom"
-  )
-
-# Check correlation of brand loyalty
-t.test(Brand_Loyalty_Score ~ Ratings, data = model_data)
-
-# Step 3: Train-Test Split
-train_index <- createDataPartition(model_data$Ratings, p = 0.8, list = FALSE)
-train_data <- model_data[train_index, ]
-test_data <- model_data[-train_index, ]
-
-# Check class balance
-table(train_data$Ratings)
-
-# Step 4: Prepare Data for XGBoost
-# Function to convert categorical variables to numeric for XGBoost
-prepare_numeric_data <- function(data) {
-  result <- data
-  # Create copies of factors as numerics
-  if("Product_Brand" %in% colnames(result) && is.factor(result$Product_Brand)) {
-    result$Product_Brand_Num <- as.numeric(result$Product_Brand)
-  }
-  if("Product_Category" %in% colnames(result) && is.factor(result$Product_Category)) {
-    result$Product_Category_Num <- as.numeric(result$Product_Category)
-  }
-  if("Brand_Category_Combo" %in% colnames(result) && is.factor(result$Brand_Category_Combo)) {
-    result$Brand_Category_Combo_Num <- as.numeric(result$Brand_Category_Combo)
+# Step 3: Model Training and Evaluation
+train_and_evaluate <- function(data, label = "Ratings") {
+  # Split
+  set.seed(123)
+  train_idx <- createDataPartition(data[[label]], p = 0.8, list = FALSE)
+  train_data <- data[train_idx, ]
+  test_data <- data[-train_idx, ]
+  
+  # Calculate ratings distribution
+  train_distribution <- table(train_data$Ratings)
+  
+  # Prepare numeric version for XGBoost
+  prepare_numeric_data <- function(df) {
+    df$Customer_ID_Num <- as.numeric(factor(df$Customer_ID))
+    df$Product_Brand_Num <- as.numeric(factor(df$Product_Brand))
+    df$Product_Category_Num <- as.numeric(factor(df$Product_Category))
+    df <- df |> select(-Customer_ID, -Product_Brand, -Product_Category)
+    return(df)
   }
   
-  # Remove original factor columns for numeric processing
-  result <- result |>
-    select(-Product_Brand, -Product_Category, -Brand_Category_Combo)
+  train_numeric <- prepare_numeric_data(train_data)
+  test_numeric <- prepare_numeric_data(test_data)
   
-  return(result)
+  ###### Random Forest
+  rf_model <- randomForest(Ratings ~ ., data = train_data, ntree = 100)
+  rf_pred <- predict(rf_model, test_data)
+  rf_conf <- confusionMatrix(rf_pred, test_data$Ratings)
+  rf_prob <- predict(rf_model, test_data, type = "prob")[, "High"]
+  rf_roc <- roc(test_data$Ratings, rf_prob)
+  
+  ###### XGBoost
+  xgb_train <- xgb.DMatrix(data = as.matrix(train_numeric |> select(-Ratings)), label = as.numeric(train_data$Ratings) - 1)
+  xgb_test <- xgb.DMatrix(data = as.matrix(test_numeric |> select(-Ratings)), label = as.numeric(test_data$Ratings) - 1)
+  
+  xgb_model <- xgb.train(
+    params = list(
+      objective = "binary:logistic", eval_metric = "auc",
+      eta = 0.1, max_depth = 6, subsample = 0.8, colsample_bytree = 0.8
+    ),
+    data = xgb_train,
+    nrounds = 100,
+    verbose = 0
+  )
+  
+  xgb_prob <- predict(xgb_model, xgb_test)
+  xgb_pred <- factor(ifelse(xgb_prob > 0.5, "High", "Low"), levels = c("Low", "High"))
+  xgb_conf <- confusionMatrix(xgb_pred, test_data$Ratings)
+  xgb_roc <- roc(test_data$Ratings, xgb_prob)
+  
+  return(list(
+    rf = list(model = rf_model, roc = rf_roc, conf = rf_conf, auc = auc(rf_roc), predictions  = rf_pred, confusion_matrix=rf_conf),
+    xgb = list(model = xgb_model, roc = xgb_roc, conf = xgb_conf, auc = auc(xgb_roc), predictions = xgb_pred, confusion_matrix = xgb_conf),
+    train_distribution = train_distribution
+  ))
 }
 
-# Prepare numeric version of the training data
-train_numeric <- prepare_numeric_data(train_data)
 
-# Apply SMOTE to handle class imbalance
-smote_result <- SMOTE(
-  X = train_numeric |> select(-Ratings),
-  target = train_numeric$Ratings,
-  K = 5,
-  dup_size = 1
+# Imbalanced
+imbalanced_results <- train_and_evaluate(model_data)
+
+# Balanced
+set.seed(123)
+balanced_data <- downSample(x = model_data[, -1], y = model_data$Ratings, yname = "Ratings")
+balanced_results <- train_and_evaluate(balanced_data)
+
+# View Ratings Distribution
+print(imbalanced_results$train_distribution)
+print(balanced_results$train_distribution)
+
+# Step 4: Access Confusion Matrix
+print(balanced_results$rf$confusion_matrix)
+print(balanced_results$xgb$confusion_matrix)
+print(imbalanced_results$rf$confusion_matrix)
+print(imbalanced_results$xgb$confusion_matrix)
+
+
+# --------------------- Visualization --------------------------
+library(ggplot2)
+# Step 5: Visualize ROC values
+# [Random Forest ROC plot]
+plot(imbalanced_results$rf$roc, col = "blue", lwd = 2,
+     main = "Random Forest ROC Curve (Balanced vs Imbalanced)")
+lines(balanced_results$rf$roc, col = "red", lty = 2, lwd = 2)
+text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$rf$roc), 4)), col="black")
+text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$rf$roc), 4)), col="black")
+legend("bottomright",
+       legend = c("RF Imbalanced", "RF Balanced"),
+       col = c("blue", "red"),
+       lty = c(1, 2),
+       lwd = 2)
+
+# [XGBoost ROC plot]
+plot(imbalanced_results$xgb$roc, col = "blue", lwd = 2,
+     main = "XGBoost ROC Curve (Balanced vs Imbalanced)")
+lines(balanced_results$xgb$roc, col = "red", lty = 2, lwd = 2)
+text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$xgb$roc), 4)), col="black")
+text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$xgb$roc), 4)), col="black")
+legend("bottomright",
+       legend = c("XGB Imbalanced", "XGB Balanced"),
+       col = c("blue", "red"),
+       lty = c(1, 2),
+       lwd = 2)
+
+
+# Step 6: Visualize Feature Importance
+bar_theme_setting <- function(plot, fill_label = "Data Type", show_legend = TRUE) {
+  palette_colors <- met.brewer("Cassatt1", 2)
+  
+  plot <- plot +
+    scale_fill_manual(
+      name = fill_label,
+      values = c("Imbalanced" = palette_colors[1], "Balanced" = palette_colors[2])
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      axis.text.x = element_text(size = 10),
+      axis.text.y = element_text(size = 10),
+      axis.ticks = element_blank(),
+      panel.grid = element_line(color = "grey90"),
+      legend.title = element_text(size = 10, face = "bold"),
+      legend.text = element_text(size = 9),
+      axis.title = element_text(size = 11)
+    )
+  
+  if (show_legend) {
+    plot <- plot + theme(legend.position = "bottom")
+  } else {
+    plot <- plot + theme(legend.position = "none")
+  }
+  
+  return(plot)
+}
+
+
+# RANDOM FOREST feature importance
+rf_imp_imb <- importance(imbalanced_results$rf$model)
+rf_imp_bal <- importance(balanced_results$rf$model)
+
+# Convert to dataframe
+rf_imp_df_imb <- data.frame(Feature = rownames(rf_imp_imb),
+                            Importance = rf_imp_imb[, "MeanDecreaseGini"],
+                            Type = "Imbalanced")
+
+rf_imp_df_bal <- data.frame(Feature = rownames(rf_imp_bal),
+                            Importance = rf_imp_bal[, "MeanDecreaseGini"],
+                            Type = "Balanced")
+
+rf_imp_df <- rbind(rf_imp_df_imb, rf_imp_df_bal)
+
+# Plot
+rf_imp_plot <- bar_theme_setting(
+  ggplot(rf_imp_df, aes(x = reorder(Feature, Importance), y = Importance, fill = Type)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    coord_flip() +
+    labs(
+      x = "Features", 
+      y = "Mean Decrease Gini"
+      ),
+  show_legend = FALSE
 )
 
-# Create balanced dataset
-balanced_data <- smote_result$data
-balanced_data$class <- as.factor(balanced_data$class)
-names(balanced_data)[names(balanced_data) == "class"] <- "Ratings"
 
-# Check class balance
-table(balanced_data$Ratings)
+# XGBoost importance
+# Imbalanced importance
+xgb_imp_imb <- xgb.importance(model = imbalanced_results$xgb$model)
+xgb_imp_imb$Type <- "Imbalanced"
 
-# Prepare XGBoost matrices
-xgb_train <- xgb.DMatrix(
-  data = as.matrix(balanced_data |> select(-Ratings)),
-  label = ifelse(balanced_data$Ratings == "High", 1, 0)
-)
+# Balanced importance
+xgb_imp_bal <- xgb.importance(model = balanced_results$xgb$model)
+xgb_imp_bal$Type <- "Balanced"
 
-# Prepare test data
-test_numeric <- prepare_numeric_data(test_data)
-xgb_test <- xgb.DMatrix(
-  data = as.matrix(test_numeric |> select(-Ratings)),
-  label = ifelse(test_numeric$Ratings == "High", 1, 0)
-)
+# plot
+xgb_imp_df <- rbind(xgb_imp_imb, xgb_imp_bal)
 
-# Step 5: Train XGBoost Model
-# Set XGBoost parameters
-xgb_params <- list(
-  objective = "binary:logistic",
-  eval_metric = "auc",
-  eta = 0.1,
-  max_depth = 6,
-  subsample = 0.8,
-  colsample_bytree = 0.8
-)
-
-# Train the model
-xgb_model <- xgb.train(
-  params = xgb_params,
-  data = xgb_train,
-  nrounds = 100,
-  watchlist = list(train = xgb_train, test = xgb_test),
-  verbose = 1,
-  early_stopping_rounds = 10
-)
-
-# Step 6: Model Evaluation
-# Make predictions
-xgb_prob <- predict(xgb_model, xgb_test)
-xgb_pred <- ifelse(xgb_prob > 0.5, "High", "Low") |> factor(levels = c("Low", "High"))
-
-# Calculate confusion matrix
-conf <- confusionMatrix(xgb_pred, test_data$Ratings)
-print(conf)
-
-# Calculate ROC and AUC
-roc_obj <- roc(test_data$Ratings, xgb_prob)
-auc_val <- auc(roc_obj)
-cat("AUC:", round(auc_val, 4), "\n\n")
-
-# Plot [ROC curve]
-plot(roc_obj, main = "XGBoost ROC Curve", col = "blue")
-abline(a = 0, b = 1, lty = 2, col = "gray")
-
-# Step 7: Feature Importance Analysis
-# Get feature importance from XGBoost
-xgb_importance <- xgb.importance(model = xgb_model)
-print(xgb_importance)
-
-# [Bar Chart] Customized feature importance plot
-importance_df <- as.data.frame(xgb_importance)
-ggplot(importance_df[1:10, ], aes(x = reorder(Feature, Gain), y = Gain)) +
-  geom_bar(stat = "identity", fill = "steelblue", width = 0.7) +
-  coord_flip() +
-  labs(
-    title = "Top 10 Features by Importance (XGBoost)",
-    x = "Feature",
-    y = "Importance (Gain)"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
-    axis.title.x = element_text(face = "bold"),
-    axis.title.y = element_text(face = "bold"),
-    axis.text = element_text(color = "black"),
-    panel.grid.major.y = element_blank(),  # Remove horizontal grid lines
-    panel.grid.minor = element_blank()
+xgb_imp_plot <- bar_theme_setting(
+  ggplot(xgb_imp_df, aes(x = reorder(Feature, Gain), y = Gain, fill = Type)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    coord_flip() +
+    labs(
+      x = "Features",
+      y = "Gain"
+      ),
+  show_legend = TRUE
   )
 
 
-# Step 8: Direct Analysis of Brand Preference and Purchase Behavior
-# Calculate correlation between brand loyalty and rating
-brand_loyalty_effect <- train_data |>
-  group_by(Product_Brand) |>
-  summarize(
-    Avg_Loyalty_Score = mean(Brand_Loyalty_Score, na.rm = TRUE),
-    High_Rating_Pct = sum(Ratings == "High", na.rm = TRUE) / n() * 100,
-    Count = n()
-  ) |>
-  arrange(desc(High_Rating_Pct))
-
-# Analysis of purchase quantity patterns across categories and ratings
-quantity_pattern <- train_data |>
-  group_by(Product_Category, Purchase_Quantity, Ratings) |>
-  summarize(Count = n(), .groups = 'drop') |>
-  group_by(Product_Category, Purchase_Quantity) |>
-  mutate(High_Rating_Pct = sum(Ratings == "High" & Count > 0) / sum(Count) * 100)
-
-# [Bubble Chart] Visualize brand loyalty vs. satisfaction
-brand_loyalty_plot <- ggplot(brand_loyalty_effect, 
-                             aes(x = Avg_Loyalty_Score, 
-                                 y = High_Rating_Pct, 
-                                 size = Count, 
-                                 color = Product_Brand)) +
-  geom_point(alpha = 0.7) +
-  scale_size_continuous(range = c(3, 12)) +  # Adjust bubble sizes
-  labs(
-    title = "Brand Loyalty vs Customer Satisfaction",
-    x = "Average Brand Loyalty Score", 
-    y = "percentage of High Ratings(%)",
-    size = "Customer Count",
-    color = "Brand"
-  ) +
-  theme_minimal(base_size = 14) +
+combined_imp_plot <- (rf_imp_plot | xgb_imp_plot) +
+  plot_layout(guides = "collect") + 
+  plot_annotation(
+    title = "Random Forest Vs XGBoost Feature Importance",
+    subtitle = "Left: Random Forest Feature Importance | Right: XGBoost Feature Importance",
+    caption = "Source: Retail Dataset | Balanced & Imbalanced Ratings Features"
+  ) &
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
-    axis.title = element_text(face = "bold"),
-    legend.title = element_text(face = "bold"),
-    panel.grid.minor = element_blank()
+    legend.position = "bottom",
+    legend.justification = "center",
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 11)
   )
+
+print(combined_imp_plot)
+
 
 
 ### ─────────────────────────────────────────────
@@ -1011,38 +891,33 @@ library(dplyr)
 library(caret)
 
 ## b) Prepare Data
-customer_cluster_data <- retail_data_proc %>%
-  select(Ratings, Product_Brand, Purchase_Quantity, Product_Category) %>%
-  mutate(Ratings = factor(Ratings, levels = c("Low", "High")))
+customer_cluster_data <- retail_data_proc |>
+  select(Ratings, Product_Brand, Purchase_Quantity, Product_Category)
 
-## c) Store original labels
-product_brand_labels <- levels(factor(customer_cluster_data$Product_Brand))
-product_category_labels <- levels(factor(customer_cluster_data$Product_Category))
-
-## d) Data preprocessing
-# Convert factors to numeric for clustering but store original labels separately
-customer_cluster_data$Product_Brand_num <- as.numeric(as.factor(customer_cluster_data$Product_Brand))
-customer_cluster_data$Product_Category_num <- as.numeric(as.factor(customer_cluster_data$Product_Category))
+## c) Data preprocessing
+# Convert factors to numeric for clustering
+customer_cluster_data$Product_Brand_num <- as.numeric(customer_cluster_data$Product_Brand)
+customer_cluster_data$Product_Category_num <- as.numeric(customer_cluster_data$Product_Category)
 
 # Scale the numeric variables for better clustering
 customer_cluster_data_scaled <- scale(customer_cluster_data[, c("Product_Brand_num", "Product_Category_num", "Purchase_Quantity")])
 
-## e) K-means Clustering
+## d) K-means Clustering
 # Elbow method to find the optimal number of clusters
 wss <- (nrow(customer_cluster_data_scaled) - 1) * sum(apply(customer_cluster_data_scaled, 2, var))
-for (i in 2:15) {
+for (i in 1:15) {
   kmeans_result <- kmeans(customer_cluster_data_scaled, centers = i)
   wss[i] <- kmeans_result$tot.withinss
 }
 
-## f) Perform K-means with the selected number of clusters (K=3)
+## e) Perform K-means with the selected number of clusters (K=3) [Based on Elbow Method]
 kmeans_result <- kmeans(customer_cluster_data_scaled, centers = 3)
 customer_cluster_data$cluster <- as.factor(kmeans_result$cluster)
 
 
-## g) Cluster Profiling (Summary)
-cluster_summary <- customer_cluster_data %>%
-  group_by(cluster) %>%
+## f) Cluster Profiling (Summary)
+cluster_summary <- customer_cluster_data |>
+  group_by(cluster) |>
   summarise(
     avg_purchase = mean(Purchase_Quantity),
     avg_rating = mean(as.numeric(Ratings)),
@@ -1064,7 +939,10 @@ elbow_method_plot <- ggplot(elbow_data, aes(K, WSS)) +
   geom_point(size = 3, color = "#2C3E50") +
   geom_line() +
   labs(title = "Elbow Method for Optimal Number of Clusters",
-       x = "Number of Clusters (K)", y = "Total within-cluster sum of squares", subtitle = "") +
+       x = "Number of Clusters (K)", 
+       y = "Total within-cluster sum of squares",
+       caption = "Source: Retail Dataset"
+       ) +
   theme_minimal(base_size = 14) +
   theme(plot.title = element_text(face = "bold", hjust = 0.5))
 print(elbow_method_plot)
@@ -1084,7 +962,7 @@ plot_ly(
   symbol = as.factor(customer_cluster_data$Product_Category),
   colors = c("#F1C40F", "#E74C3C", "#2ECC71"),
   marker = list(opacity = 0.8)
-) %>%
+) |>
   layout(
     title = list(
       text = "3D PCA Plot of Customer Clusters<br><sub>3 different clusters segregated in each category</sub>",
@@ -1107,8 +985,8 @@ plot_ly(
 customer_cluster_data$Rating_Num <- ifelse(customer_cluster_data$Ratings == "High", 2, 1)
 
 # Summarize by cluster and brand
-brand_cluster_summary <- customer_cluster_data %>%
-  group_by(cluster, Product_Brand) %>%
+brand_cluster_summary <- customer_cluster_data |>
+  group_by(cluster, Product_Brand) |>
   summarise(
     Avg_Purchase = mean(Purchase_Quantity),
     Avg_Rating = mean(Rating_Num),
@@ -1149,19 +1027,92 @@ ggplot(brand_cluster_summary, aes(x = factor(Product_Brand), y = Avg_Purchase, f
 set.seed(123)
 # Create a smaller sample
 sample_indices <- sample(1:nrow(customer_cluster_data_scaled), 40)
+sample_data <- customer_cluster_data_scaled[sample_indices, ]
+dist_matrix <- dist(sample_data)
+hc <- hclust(dist_matrix)
 
 # Convert to dendrogram
 dend <- as.dendrogram(hc)
 
-# Assign labels (e.g., original Product_Brand from sampled rows)
+# Assign labels
 labels(dend) <- customer_cluster_data$Product_Brand[sample_indices]
 
 # Color branches by cluster
-dend_colored <- color_branches(dend, k = 3)
+dend_colored <- color_branches(dend, k = 6)
 
 # Plot horizontally for better readability
 plot(dend_colored,
      main = "Clustered Customers by Brand & Cluster (Sampled)",
      horiz = TRUE,
-     cex.main = 0.9)
+     cex.main = 1.2)
 
+
+# Add vertical dotted lines and annotate intersection points
+for (h in c(0.5, 1, 1.5, 2, 2.5)) {
+  abline(v = h, col = "grey60", lty = 2)
+}
+
+# Add baseline at y =0
+abline(v=0, col="black", lwd= 1)
+
+# ------------------ GROUP --------------------
+# Random Forest Prediction
+# Load necessary libraries
+library(randomForest)
+library(caret)
+library(ggplot2)
+library(dplyr)
+library(viridis)
+
+overall_model_data <- retail_data_proc |>
+  # Select relevant columns for our model
+  select(Ratings, City, State, Country, Age, Gender, Income, Customer_Segment, Purchase_Quantity, Amount, Product_Category, Product_Brand, Product_Type, Feedback, Payment_Method, Shipping_Method, Order_Status, Products, DateTime)
+
+# Split data into training and testing sets (80/20 split)
+set.seed(123) # For reproducibility
+overall_train_index <- createDataPartition(overall_model_data$Ratings, p = 0.8, list = FALSE)
+overall_train_data <- overall_model_data[train_index, ]
+overall_test_data <- overall_model_data[-train_index, ]
+
+# Build Random Forest model
+overall_rf_model <- randomForest(
+  Ratings ~ ., 
+  data = overall_train_data,
+  ntree = 100,       # Number of trees
+  importance = TRUE  # Calculate variable importance
+)
+
+# Print model summary
+print(overall_rf_model)
+
+# Evaluate model performance
+# Make predictions on test data
+overall_predictions <- predict(rf_model, overall_test_data)
+
+# Create confusion matrix
+overall_conf_matrix <- confusionMatrix(overall_predictions, overall_test_data$Ratings)
+print(overall_conf_matrix)
+
+# Variable importance
+overall_var_importance <- importance(rf_model)
+print(overall_var_importance)
+
+# Plot variable importance
+varImpPlot(overall_rf_model, main = "Variable Importance")
+
+# Plot variable importance using ggplot2 for better visualization
+overall_importance_df <- as.data.frame(importance(rf_model))
+overall_importance_df$Variable <- rownames(overall_importance_df)
+
+# Sort by MeanDecreaseGini
+overall_importance_df <- overall_importance_df |>
+  arrange(desc(MeanDecreaseGini))
+
+# Plot variable importance
+ggplot(overall_importance_df, aes(x = reorder(Variable, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_bar(stat = "identity", fill = viridis(1)) +
+  coord_flip() +
+  labs(title = "Variable Importance in Random Forest Model",
+       x = "Variables",
+       y = "Mean Decrease in Gini Index") +
+  theme_minimal()
