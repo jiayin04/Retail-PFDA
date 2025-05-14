@@ -2,7 +2,7 @@
 ### 1. Install and Load Packages
 ### ─────────────────────────────────────────────
 # Install packages
-install.packages(c("tidyr", "data.table", "dplyr", "ggplot2", "janitor", "missForest", "VIM", "zoo", "gender", "stringr", "mice", "GGally"))
+install.packages(c("tidyr", "data.table", "dplyr", "ggplot2", "janitor", "missForest", "VIM", "zoo", "gender", "stringr", "mice"))
 
 # Load library
 library(tidyr)
@@ -18,7 +18,6 @@ library(zoo)
 library(gender)
 library(stringr)
 library(mice)
-library(GGally)
 
 ### ─────────────────────────────────────────────
 ### 2. Set Working Directory & Load Dataset
