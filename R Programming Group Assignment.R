@@ -271,6 +271,8 @@ View(retail_data_proc)
 ### ─────────────────────────────────────────────
 # i) Analysis technique - MANOVA
 library(dplyr)
+library(car) 
+
 ## a. Subset data for manova analysis
 manova_data <- retail_data_proc |> select(Ratings, Purchase_Quantity, Product_Category) |> mutate(
   ## b. Make ratings numeric
@@ -317,13 +319,13 @@ hist1 <- ggplot(manova_data, aes(x = Purchase_Quantity, fill = Product_Category)
 
 # Base histogram of Ratings histogram
 hist2 <- ggplot(manova_data, aes(x = Ratings_Num, fill = Product_Category)) +
-  geom_histogram(binwidth = 1, alpha = 0.7, position = "dodge", color = "black") +
+  geom_histogram(bins = 5, alpha = 0.7, position = "dodge", color = "black") +
   scale_fill_met_d("Cassatt2") +
   labs(x = "Satisfaction Score", y = "Count", fill = "Product Category") +
   styleHistogram()
 
 # Combine plots horizontally
-combined_plot_hist <- styled_hist1 | styled_hist2
+combined_plot_hist <- hist1 | hist2
 
 # Add global title, subtitle, and unified layout
 final_hist_plot <- combined_plot_hist +
@@ -339,7 +341,6 @@ final_hist_plot <- combined_plot_hist +
 
 # Display the final plot
 final_hist_plot
-
 
 # [Violin + Boxplot]
 violin_boxplot <- ggplot(manova_data, aes(x = Product_Category, y = Purchase_Quantity, fill = as.factor(Ratings))) +
@@ -909,12 +910,24 @@ for (i in 1:15) {
   wss[i] <- kmeans_result$tot.withinss
 }
 
-## e) Perform K-means with the selected number of clusters (K=3) [Based on Elbow Method]
+### e) Evaluates K-means clustering quality using the average silhouette score
+set.seed(123)
+silhouette_sample_data <- customer_cluster_data_scaled[sample(nrow(customer_cluster_data_scaled), 10000), ]
+
+sil_score <- function(k) {
+  km <- kmeans(silhouette_sample_data, centers = k)
+  mean(silhouette(km$cluster, dist(silhouette_sample_data))[, 3])
+}
+
+cat(sprintf("Avg Silhouette \n K=3: %.4f \n K=4: %.4f\n", sil_score(3), sil_score(4)))
+
+
+## f) Perform K-means with the selected number of clusters (K=3) [Based on Elbow Method & average silhouette score]
 kmeans_result <- kmeans(customer_cluster_data_scaled, centers = 3)
 customer_cluster_data$cluster <- as.factor(kmeans_result$cluster)
 
 
-## f) Cluster Profiling (Summary)
+## g) Cluster Profiling (Summary)
 cluster_summary <- customer_cluster_data |>
   group_by(cluster) |>
   summarise(
@@ -1065,6 +1078,7 @@ library(viridis)
 
 overall_model_data <- retail_data_proc |>
   # Select relevant columns for our model
+  # select(Ratings, City, State, Country, Age, Gender, Income, Customer_Segment, Purchase_Quantity, Amount, Product_Category, Product_Brand, Product_Type, Payment_Method, Shipping_Method, Order_Status, Products, DateTime)
   select(Ratings, City, State, Country, Age, Gender, Income, Customer_Segment, Purchase_Quantity, Amount, Product_Category, Product_Brand, Product_Type, Feedback, Payment_Method, Shipping_Method, Order_Status, Products, DateTime)
 
 # Split data into training and testing sets (80/20 split)
@@ -1086,21 +1100,21 @@ print(overall_rf_model)
 
 # Evaluate model performance
 # Make predictions on test data
-overall_predictions <- predict(rf_model, overall_test_data)
+overall_predictions <- predict(overall_rf_model, overall_test_data)
 
 # Create confusion matrix
 overall_conf_matrix <- confusionMatrix(overall_predictions, overall_test_data$Ratings)
 print(overall_conf_matrix)
 
 # Variable importance
-overall_var_importance <- importance(rf_model)
+overall_var_importance <- importance(overall_rf_model)
 print(overall_var_importance)
 
 # Plot variable importance
 varImpPlot(overall_rf_model, main = "Variable Importance")
 
 # Plot variable importance using ggplot2 for better visualization
-overall_importance_df <- as.data.frame(importance(rf_model))
+overall_importance_df <- as.data.frame(importance(overall_rf_model))
 overall_importance_df$Variable <- rownames(overall_importance_df)
 
 # Sort by MeanDecreaseGini
