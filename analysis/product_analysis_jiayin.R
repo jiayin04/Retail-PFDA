@@ -440,6 +440,7 @@ print(combined_imp_plot)
 # a) Load required libraries
 library(dplyr)
 library(caret)
+library(cluster)
 
 ## b) Prepare Data
 customer_cluster_data <- retail_data_proc |>
