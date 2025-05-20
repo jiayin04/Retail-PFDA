@@ -7,7 +7,8 @@ required_packages <- c(
   "missForest", "VIM", "zoo", "gender", "stringr", "mice",
   "lubridate", "hms", "readr", "car", "MetBrewer", "patchwork",
   "reshape2", "caret", "randomForest", "xgboost", "pROC",
-  "plotly", "dendextend", "viridis", "purrr", "cluster"
+  "plotly", "dendextend", "viridis", "purrr", "cluster", "factoextra", "NbClust", "fmsb",
+  "vcd"
 )
 
 # Install any packages that are not already installed
@@ -61,8 +62,13 @@ library(patchwork)    # Combine ggplot2 plots
 library(MetBrewer)    # Beautiful color palettes for plots
 library(reshape2)     # Reshape data frames (e.g., melt and cast operations)
 library(viridis)      # Color palettes optimized for colorblind and grayscale viewing
+library(vcd)          # For plotting Mosaic plot
 
 # ─── Interactive / Clustering ───
 library(plotly)       # Interactive 2D/3D plots
 library(dendextend)   # Enhanced dendrograms (e.g., color branches)
 library(cluster)      # Evaluate the quality of clustering
+library(factoextra)   # For clustering visualization
+library(NbClust)      # Determine optimal number of clusters
+library(fmsb)         # Create radar/spider charts
+

@@ -41,10 +41,11 @@ View(retail_data_proc)
 ### ─────────────────────────────────────────────
 ### 4. Individual Analyses
 ### ─────────────────────────────────────────────
+# Nik Nur Farah Hana Binti Nik Muhd Hayazi Mazlan (TP071995) - To analyze the impact of age on purchasing behavior and customer satisfaction.
+source("analysis/age_analysis_hana.R")
+
 # KOK JIA YIN (TP071062) - To evaluate the influence of product preferences on purchasing behavior and customer satisfaction. 
 source("analysis/product_analysis_jiayin.R")
-
-
 
 
 
