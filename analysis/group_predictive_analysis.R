@@ -28,8 +28,8 @@ overall_rf_model <- randomForest(
   importance = TRUE  # Calculate variable importance
 )
 
-# Print model summary
-print(overall_rf_model)
+# # Print model summary
+# print(overall_rf_model)
 
 # Evaluate model performance
 # Make predictions on test data
@@ -43,6 +43,8 @@ print(overall_conf_matrix)
 overall_var_importance <- importance(overall_rf_model)
 print(overall_var_importance)
 
+
+#------------------------ Visualization ---------------------------
 # Plot variable importance
 varImpPlot(overall_rf_model, main = "Variable Importance")
 
