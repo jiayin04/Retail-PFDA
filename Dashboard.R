@@ -194,7 +194,7 @@ ui <- dashboardPage(
                     # Recommendations Tab
                     tabPanel("Recommendations",
                              fluidRow(
-                               column(8,
+                               column(7,
                                       box(
                                         title = "Current vs Target Satisfaction Rates",
                                         status = "primary",
@@ -203,7 +203,7 @@ ui <- dashboardPage(
                                         withSpinner(plotlyOutput("recommendations_plot"))
                                       )
                                ),
-                               column(4,
+                               column(5,
                                       box(
                                         title = "Action Plan Summary",
                                         status = "primary",
@@ -228,7 +228,7 @@ ui <- dashboardPage(
                                         title = "Priority Countries",
                                         status = "danger",
                                         solidHeader = TRUE,
-                                        width = 12,
+                                        width = 20,
                                         h4("Top 3 Countries Needing Immediate Attention"),
                                         withSpinner(DT::dataTableOutput("priority_countries_table"))
                                       )
