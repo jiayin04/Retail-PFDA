@@ -421,37 +421,3 @@ for(i in 1:3) {
   cat("   Action:", priority_countries$Recommended_Action[i], "\n\n")
 }
 
-#==================================================================================
-# Extra Feature: Geospatial Analysis
-#==================================================================================
-
-# a. Get unique cities
-unique_cities <- data %>%
-  select(City, State, Country) %>%
-  distinct() %>%
-  mutate(full_address = paste(City, State, Country, sep = ", "))
-
-# b. Geocode using Nominatim (OpenStreetMap)
-geocoded_cities <- unique_cities %>%
-  geocode(address = full_address, method = "osm", lat = latitude, long = longitude)
-
-# c. Merge coordinates back into the main data
-data_with_coords <- data %>%
-  left_join(geocoded_cities, by = c("City", "State", "Country"))
-
-# d. Check any failed geocoding
-failed <- data_with_coords %>% filter(is.na(latitude) | is.na(longitude))
-print(failed)
-
-# e. Basic map visualization
-leaflet(data_with_coords) %>%
-  addProviderTiles("CartoDB.Positron") %>%
-  addCircleMarkers(
-    lng = ~longitude, lat = ~latitude,
-    color = ~ifelse(Ratings == "High", "blue", "red"),
-    popup = ~paste0(City, ", ", Country, "<br>Rating: ", Ratings),
-    radius = 4,
-    fillOpacity = 0.7
-  ) %>%
-  addLegend(position = "bottomright", colors = c("blue", "red"),
-            labels = c("High Rating", "Low Rating"), title = "Customer Ratings")
