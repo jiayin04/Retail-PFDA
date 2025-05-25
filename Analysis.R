@@ -31,8 +31,8 @@ data <- retail_data_proc
 str(data)
 
 #==================================================================================
-# Analysis 1: Is there a significant difference in customer satisfaction ratings 
-# among countries, based on rating distribution and average scores?
+# Analysis 1: What are the patterns and distributions of customer satisfaction 
+#ratings across different countries, and how do the rating profiles vary geographically?
 #==================================================================================
 
 
@@ -127,6 +127,12 @@ ggplot(avg_ratings, aes(x = Country, y = Average_Rating, fill = Country)) +
   scale_fill_viridis_d()
 
 
+
+#==================================================================================
+# Analysis 2: Is there a statistically significant difference in customer 
+# satisfaction ratings among countries, and which specific country pairs show meaningful differences in their rating distributions?
+#==================================================================================
+
 #---Diagnostic Analysis---#
 
 # a. Perform Chi-square test if no zero counts
@@ -150,6 +156,12 @@ tukey_result <- TukeyHSD(anova_model)
 
 # View results
 print(tukey_result)
+
+
+#==================================================================================
+# Analysis 3: Can we accurately predict customer satisfaction ratings based on 
+# country location, and which countries are most likely to generate high customer satisfaction scores?
+#==================================================================================
 
 #---Prediction analysis---#
 
@@ -408,6 +420,94 @@ leaflet(data_with_coords) %>%
   ) %>%
   addLegend(position = "bottomright", colors = c("blue", "red"),
             labels = c("High Rating", "Low Rating"), title = "Customer Ratings")
+
+
+
+
+#==================================================================================
+# Analysis 4: What specific actions should be taken to improve customer 
+# satisfaction ratings in each country?
+#==================================================================================
+
+#---Prescriptive Analysis---#
+
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+#--- Prescriptive Analysis---#
+
+# Calculate satisfaction rate by country
+country_summary <- data %>%
+  group_by(Country) %>%
+  summarise(
+    Total_Customers = n(),
+    High_Ratings = sum(Ratings == "High"),
+    Satisfaction_Rate = round((High_Ratings / Total_Customers) * 100, 1)
+  ) %>%
+  arrange(Satisfaction_Rate)
+
+print("Country Satisfaction Rates:")
+print(country_summary)
+
+# Step 2: Categorize countries by performance
+country_summary <- country_summary %>%
+  mutate(
+    Performance_Level = case_when(
+      Satisfaction_Rate >= 70 ~ "Good",
+      Satisfaction_Rate >= 50 ~ "Average",
+      TRUE ~ "Needs Improvement"
+    )
+  )
+
+# Step 3: Create action recommendations
+recommendations <- country_summary %>%
+  mutate(
+    Recommended_Action = case_when(
+      Performance_Level == "Needs Improvement" ~ "Priority: Immediate service improvement needed",
+      Performance_Level == "Average" ~ "Focus: Targeted improvements to reach 70%+",
+      TRUE ~ "Maintain: Continue current good practices"
+    ),
+    Target_Satisfaction = case_when(
+      Performance_Level == "Needs Improvement" ~ Satisfaction_Rate + 30,
+      Performance_Level == "Average" ~ 75,
+      TRUE ~ Satisfaction_Rate + 5
+    )
+  )
+
+print("Country Recommendations:")
+print(recommendations %>% select(Country, Satisfaction_Rate, Performance_Level, Recommended_Action))
+
+# Step 4: Visualize current vs target satisfaction
+ggplot(recommendations, aes(x = reorder(Country, Satisfaction_Rate))) +
+  geom_col(aes(y = Satisfaction_Rate, fill = Performance_Level), alpha = 0.7) +
+  geom_point(aes(y = Target_Satisfaction), color = "red", size = 3) +
+  geom_segment(aes(xend = Country, y = Satisfaction_Rate, yend = Target_Satisfaction), 
+               color = "red", linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Current vs Target Satisfaction Rates",
+       subtitle = "Red dots show improvement targets",
+       x = "Country", y = "Satisfaction Rate (%)",
+       fill = "Performance Level") +
+  theme_minimal()
+
+# Step 5: Simple action plan summary
+action_summary <- recommendations %>%
+  count(Performance_Level, Recommended_Action) %>%
+  rename(Countries_Count = n)
+
+print("Action Plan Summary:")
+print(action_summary)
+
+# Step 6: Priority countries (lowest satisfaction rates)
+priority_countries <- head(recommendations, 3)
+
+cat("\nTOP 3 PRIORITY COUNTRIES FOR IMPROVEMENT:\n")
+for(i in 1:3) {
+  cat(paste0(i, ". ", priority_countries$Country[i], 
+             " (", priority_countries$Satisfaction_Rate[i], "% satisfaction)\n"))
+  cat("   Action:", priority_countries$Recommended_Action[i], "\n\n")
+}
 #==================================================================================
 # Analysis 2: Are certain product categories, brands, and types 
 # more popular in specific countries?
