@@ -194,7 +194,7 @@ ui <- dashboardPage(
                     # Recommendations Tab
                     tabPanel("Recommendations",
                              fluidRow(
-                               column(7,
+                               column(12,
                                       box(
                                         title = "Current vs Target Satisfaction Rates",
                                         status = "primary",
@@ -203,7 +203,7 @@ ui <- dashboardPage(
                                         withSpinner(plotlyOutput("recommendations_plot"))
                                       )
                                ),
-                               column(5,
+                               column(6,
                                       box(
                                         title = "Action Plan Summary",
                                         status = "primary",
@@ -214,7 +214,7 @@ ui <- dashboardPage(
                                )
                              ),
                              fluidRow(
-                               column(6,
+                               column(5,
                                       box(
                                         title = "Country Performance Levels",
                                         status = "warning",
@@ -223,7 +223,7 @@ ui <- dashboardPage(
                                         withSpinner(DT::dataTableOutput("recommendations_table"))
                                       )
                                ),
-                               column(6,
+                               column(7,
                                       box(
                                         title = "Priority Countries",
                                         status = "danger",
@@ -403,42 +403,21 @@ ui <- dashboardPage(
 # Define Server
 server <- function(input, output, session) {
   
-  # Sample data generation (replace with your actual data loading)
-  generate_sample_data <- function() {
-    set.seed(123)
-    countries <- c("USA", "Canada", "UK", "Germany", "France", "Australia", "Japan")
-    
-    # Create sample data with different satisfaction rates per country
-    data_list <- list()
-    base_rates <- c(0.85, 0.78, 0.72, 0.68, 0.65, 0.82, 0.75)  # Different satisfaction rates
-    
-    for(i in 1:length(countries)) {
-      n_samples <- sample(300:800, 1)  # Random sample size per country
-      high_prob <- base_rates[i]
-      
-      ratings <- sample(c("High", "Low"), n_samples, 
-                        replace = TRUE, 
-                        prob = c(high_prob, 1-high_prob))
-      
-      data_list[[i]] <- data.frame(
-        Country = countries[i],
-        Ratings = ratings,
-        Ratings_numeric = ifelse(ratings == "High", 5, 1)
-      )
-    }
-    
-    do.call(rbind, data_list)
-  }
+  # Load and prepare data
+  data <- retail_data_proc
+  data$Ratings <- as.character(data$Ratings)
+  data$Country <- as.character(data$Country)
+  data$Ratings_numeric <- ifelse(data$Ratings == "Low", 1, 5)
   
-  # Generate sample data
-  data <- generate_sample_data()
+  # Create contingency table for statistical tests
+  table_ratings <- table(data$Country, data$Ratings)
   
   # Descriptive Analysis Outputs
   output$rating_distribution_plot <- renderPlotly({
     p <- ggplot(data, aes(x = Country, fill = Ratings)) +
       geom_bar(position = "fill") +
       scale_y_continuous(labels = scales::percent) +
-      labs(title = "Customer Rating Distribution by Country", 
+      labs(title = "Proportional Customer Ratings by Country", 
            y = "Percentage", x = "Country") +
       theme_minimal() +
       scale_fill_manual(values = c("Low" = "#E69F00", "High" = "#56B4E9")) +
@@ -465,7 +444,6 @@ server <- function(input, output, session) {
   })
   
   output$heatmap_plot <- renderPlotly({
-    table_ratings <- table(data$Country, data$Ratings)
     heatmap_data <- as.data.frame(as.table(table_ratings))
     
     p <- ggplot(heatmap_data, aes(Var1, Var2, fill = Freq)) +
@@ -487,6 +465,8 @@ server <- function(input, output, session) {
         Mean = round(mean(Ratings_numeric, na.rm = TRUE), 2),
         Median = median(Ratings_numeric, na.rm = TRUE),
         SD = round(sd(Ratings_numeric, na.rm = TRUE), 2),
+        Min = min(Ratings_numeric, na.rm = TRUE),
+        Max = max(Ratings_numeric, na.rm = TRUE),
         High_Rating_Pct = round(sum(Ratings == "High")/n() * 100, 1)
       ) %>%
       arrange(desc(Mean))
@@ -498,24 +478,34 @@ server <- function(input, output, session) {
   
   # Statistical Analysis Outputs
   output$chisq_results <- renderText({
-    table_ratings <- table(data$Country, data$Ratings)
-    chisq_result <- chisq.test(table_ratings)
-    
-    paste(
-      "Chi-squared Test Results:\n",
-      "Chi-squared statistic:", round(chisq_result$statistic, 4), "\n",
-      "Degrees of freedom:", chisq_result$parameter, "\n",
-      "P-value:", format(chisq_result$p.value, scientific = TRUE), "\n\n",
-      "Interpretation:", 
-      ifelse(chisq_result$p.value < 0.05, 
-             "There is a significant association between country and ratings (p < 0.05)",
-             "No significant association between country and ratings (p >= 0.05)")
-    )
+    if (all(table_ratings > 0)) {
+      chisq_country_result <- chisq.test(table_ratings)
+      paste(
+        "Chi-squared Test Results:\n",
+        "Chi-squared statistic:", round(chisq_country_result$statistic, 4), "\n",
+        "Degrees of freedom:", chisq_country_result$parameter, "\n",
+        "P-value:", format(chisq_country_result$p.value, scientific = TRUE), "\n\n",
+        "Interpretation:", 
+        ifelse(chisq_country_result$p.value < 0.05, 
+               "There is a significant association between country and ratings (p < 0.05)",
+               "No significant association between country and ratings (p >= 0.05)")
+      )
+    } else {
+      fisher_country_result <- fisher.test(table_ratings)
+      paste(
+        "Fisher's Exact Test Results:\n",
+        "P-value:", format(fisher_country_result$p.value, scientific = TRUE), "\n\n",
+        "Interpretation:", 
+        ifelse(fisher_country_result$p.value < 0.05, 
+               "There is a significant association between country and ratings (p < 0.05)",
+               "No significant association between country and ratings (p >= 0.05)")
+      )
+    }
   })
   
   output$anova_results <- renderText({
-    anova_result <- aov(Ratings_numeric ~ Country, data = data)
-    anova_summary <- summary(anova_result)
+    anova_country_rating <- aov(Ratings_numeric ~ Country, data = data)
+    anova_summary <- summary(anova_country_rating)
     
     f_stat <- anova_summary[[1]][["F value"]][1]
     p_value <- anova_summary[[1]][["Pr(>F)"]][1]
@@ -553,10 +543,53 @@ server <- function(input, output, session) {
   
   # Predictive Analysis Outputs
   output$model_performance_table <- DT::renderDataTable({
-    # Simulate model performance metrics
+    # Prepare data for Random Forest
+    raw_data_country <- data %>%
+      select(Ratings, Country) %>%
+      na.omit()
+    
+    raw_data_country$Ratings <- as.factor(raw_data_country$Ratings)
+    raw_data_country$Country <- as.factor(raw_data_country$Country)
+    
+    # Create balanced dataset
+    set.seed(123)
+    sample_size_country <- min(500, min(table(raw_data_country$Country)))
+    balanced_data_country <- data.frame()
+    
+    for(country in levels(raw_data_country$Country)) {
+      country_data <- raw_data_country[raw_data_country$Country == country, ]
+      if(nrow(country_data) <= sample_size_country) {
+        sampled_data_country <- country_data
+      } else {
+        sampled_data_country <- country_data[sample(1:nrow(country_data), sample_size_country), ]
+      }
+      balanced_data_country <- rbind(balanced_data_country, sampled_data_country)
+    }
+    
+    # Split data and train model
+    train_index_country <- createDataPartition(balanced_data_country$Ratings, p = 0.8, list = FALSE)
+    train_data_country <- balanced_data_country[train_index_country, ]
+    test_data_country <- balanced_data_country[-train_index_country, ]
+    
+    rf_country_ratings_model <- randomForest(
+      Ratings ~ Country,
+      data = train_data_country,
+      ntree = 50,
+      importance = TRUE
+    )
+    
+    predictions_country <- predict(rf_country_ratings_model, test_data_country)
+    conf_matrix_country <- confusionMatrix(predictions_country, test_data_country$Ratings)
+    
+    # Create performance metrics table
     performance_metrics <- data.frame(
       Metric = c("Accuracy", "Sensitivity", "Specificity", "Precision"),
-      Value = c(0.785, 0.821, 0.743, 0.798),
+      Value = c(
+        round(conf_matrix_country$overall["Accuracy"], 3),
+        round(conf_matrix_country$byClass["Sensitivity"], 3),
+        round(conf_matrix_country$byClass["Specificity"], 3),
+        round(conf_matrix_country$byClass["Pos Pred Value"], 3)
+      ),
       Description = c(
         "Overall prediction accuracy",
         "True positive rate (High ratings correctly identified)",
@@ -571,24 +604,93 @@ server <- function(input, output, session) {
   })
   
   output$confusion_matrix <- renderText({
+    # Prepare data for Random Forest
+    raw_data_country <- data %>%
+      select(Ratings, Country) %>%
+      na.omit()
+    
+    raw_data_country$Ratings <- as.factor(raw_data_country$Ratings)
+    raw_data_country$Country <- as.factor(raw_data_country$Country)
+    
+    # Create balanced dataset and train model
+    set.seed(123)
+    sample_size_country <- min(500, min(table(raw_data_country$Country)))
+    balanced_data_country <- data.frame()
+    
+    for(country in levels(raw_data_country$Country)) {
+      country_data <- raw_data_country[raw_data_country$Country == country, ]
+      if(nrow(country_data) <= sample_size_country) {
+        sampled_data_country <- country_data
+      } else {
+        sampled_data_country <- country_data[sample(1:nrow(country_data), sample_size_country), ]
+      }
+      balanced_data_country <- rbind(balanced_data_country, sampled_data_country)
+    }
+    
+    train_index_country <- createDataPartition(balanced_data_country$Ratings, p = 0.8, list = FALSE)
+    train_data_country <- balanced_data_country[train_index_country, ]
+    test_data_country <- balanced_data_country[-train_index_country, ]
+    
+    rf_country_ratings_model <- randomForest(
+      Ratings ~ Country,
+      data = train_data_country,
+      ntree = 50,
+      importance = TRUE
+    )
+    
+    predictions_country <- predict(rf_country_ratings_model, test_data_country)
+    conf_matrix_country <- confusionMatrix(predictions_country, test_data_country$Ratings)
+    
     paste(
       "Confusion Matrix:\n",
       "           Predicted\n",
       "Actual     High  Low\n",
-      "High       234   51\n",
-      "Low         67   198\n\n",
+      "High       ", conf_matrix_country$table[1,1], "  ", conf_matrix_country$table[1,2], "\n",
+      "Low        ", conf_matrix_country$table[2,1], "  ", conf_matrix_country$table[2,2], "\n\n",
       "Model trained on balanced dataset with equal representation from each country."
     )
   })
   
   output$prediction_plot <- renderPlotly({
-    # Simulate prediction probabilities by country
-    country_pred <- data %>%
-      group_by(Country) %>%
-      summarise(
-        High_Rating_Probability = mean(Ratings == "High"),
-        Sample_Size = n()
-      )
+    # Prepare data for Random Forest
+    raw_data_country <- data %>%
+      select(Ratings, Country) %>%
+      na.omit()
+    
+    raw_data_country$Ratings <- as.factor(raw_data_country$Ratings)
+    raw_data_country$Country <- as.factor(raw_data_country$Country)
+    
+    # Create balanced dataset and train model
+    set.seed(123)
+    sample_size_country <- min(500, min(table(raw_data_country$Country)))
+    balanced_data_country <- data.frame()
+    
+    for(country in levels(raw_data_country$Country)) {
+      country_data <- raw_data_country[raw_data_country$Country == country, ]
+      if(nrow(country_data) <= sample_size_country) {
+        sampled_data_country <- country_data
+      } else {
+        sampled_data_country <- country_data[sample(1:nrow(country_data), sample_size_country), ]
+      }
+      balanced_data_country <- rbind(balanced_data_country, sampled_data_country)
+    }
+    
+    rf_country_ratings_model <- randomForest(
+      Ratings ~ Country,
+      data = balanced_data_country,
+      ntree = 50,
+      importance = TRUE
+    )
+    
+    # Calculate prediction probabilities for each country
+    country_pred <- data.frame()
+    for(country in levels(balanced_data_country$Country)) {
+      country_test <- data.frame(Country = factor(country, levels = levels(balanced_data_country$Country)))
+      pred <- predict(rf_country_ratings_model, country_test, type = "prob")
+      country_pred <- rbind(country_pred, 
+                           data.frame(Country = country, 
+                                    High_Rating_Probability = pred[, "High"]))
+    }
     
     p <- ggplot(country_pred, aes(x = reorder(Country, High_Rating_Probability),
                                   y = High_Rating_Probability, fill = Country)) +
@@ -608,7 +710,7 @@ server <- function(input, output, session) {
     sample_sizes <- data %>%
       group_by(Country) %>%
       summarise(Original_Count = n()) %>%
-      mutate(Balanced_Count = 300)  # Simulated balanced count
+      mutate(Balanced_Count = min(500, min(Original_Count)))  # Use actual balanced count
     
     sample_long <- sample_sizes %>%
       tidyr::pivot_longer(cols = c(Original_Count, Balanced_Count),
@@ -694,11 +796,25 @@ server <- function(input, output, session) {
   })
   
   output$action_summary_table <- DT::renderDataTable({
-    action_summary <- data.frame(
-      Performance_Level = c("Good", "Average", "Needs Improvement"),
-      Countries_Count = c(3, 2, 2),
-      Action_Required = c("Maintain current practices", "Targeted improvements", "Immediate intervention")
-    )
+    action_summary <- data %>%
+      group_by(Country) %>%
+      summarise(
+        Satisfaction_Rate = round(mean(Ratings == "High") * 100, 1)
+      ) %>%
+      mutate(
+        Performance_Level = case_when(
+          Satisfaction_Rate >= 70 ~ "Good",
+          Satisfaction_Rate >= 50 ~ "Average",
+          TRUE ~ "Needs Improvement"
+        ),
+        Recommended_Action = case_when(
+          Performance_Level == "Needs Improvement" ~ "Priority: Immediate service improvement needed",
+          Performance_Level == "Average" ~ "Focus: Targeted improvements to reach 70%+",
+          TRUE ~ "Maintain: Continue current good practices"
+        )
+      ) %>%
+      count(Performance_Level, Recommended_Action) %>%
+      rename(Countries_Count = n)
     
     DT::datatable(action_summary,
                   options = list(pageLength = 5, dom = 't'),

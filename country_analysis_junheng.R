@@ -109,11 +109,11 @@ ggplot(rating_count_per_country, aes(x = Country, y = Total_Ratings, fill = Coun
   scale_fill_viridis_d()
 
 # j. Calculate average rating per country
-avg_ratings <- data %>%
+avg_country_ratings <- data %>%
   group_by(Country) %>%
   summarise(Average_Rating = mean(Ratings_numeric, na.rm = TRUE))
 
-print(avg_ratings)
+print(avg_country_ratings)
 
 # k. Violin plot of ratings by country
 ggplot(data, aes(x = Country, y = Ratings_numeric, fill = Country)) +
@@ -141,25 +141,25 @@ ggplot(avg_ratings, aes(x = Country, y = Average_Rating, fill = Country)) +
 
 # a. Perform Chi-square test if no zero counts
 if (all(table_ratings > 0)) {
-  chisq_result <- chisq.test(table_ratings)
-  print(chisq_result)
+  chisq_country_result <- chisq.test(table_ratings)
+  print(chisq_country_result)
 } else {
   # Perform Fisher's Exact Test if there are zero counts
-  fisher_result <- fisher.test(table_ratings)
-  print(fisher_result)
+  fisher_country_result <- fisher.test(table_ratings)
+  print(fisher_country_result)
 }
 
 # b. Perform ANOVA test to compare mean ratings
-anova_rating <- aov(Ratings_numeric ~ Country, data = data)
-summary(anova_rating)
+anova_country_rating <- aov(Ratings_numeric ~ Country, data = data)
+summary(anova_country_rating)
 
-anova_model <- aov(Ratings_numeric ~ Country, data = data)
+anova_country_model <- aov(Ratings_numeric ~ Country, data = data)
 
 # c. Run Tukey HSD post-hoc test
-tukey_result <- TukeyHSD(anova_model)
+tukey_country_result <- TukeyHSD(anova_country_model)
 
 # d. View results
-print(tukey_result)
+print(tukey_country_result)
 
 #==================================================================================
 # Analysis 3: Can we accurately predict customer satisfaction ratings based on 
@@ -172,59 +172,59 @@ print(tukey_result)
 # Random Forest Model
 
 # a. Select only Country and Ratings columns
-raw_data <- data %>%
+raw_data_country <- data %>%
   select(Ratings, Country) %>%
   na.omit()
 
 # b. Convert variables to factors
-raw_data$Ratings <- as.factor(raw_data$Ratings)
-raw_data$Country <- as.factor(raw_data$Country)
+raw_data_country$Ratings <- as.factor(raw_data_country$Ratings)
+raw_data_country$Country <- as.factor(raw_data_country$Country)
 
 # c. Check the initial distribution of data by country
-country_counts <- table(raw_data$Country)
+country_counts <- table(raw_data_country$Country)
 print("Original country distribution:")
 print(country_counts)
 
 # d. Create a balanced dataset with equal representation from each country
 # Find the count of the second most frequent country (not USA)
-usa_count <- sum(raw_data$Country == "USA")
-other_countries <- raw_data$Country != "USA"
+usa_count <- sum(raw_data_country$Country == "USA")
+other_countries <- raw_data_country$Country != "USA"
 if(sum(other_countries) > 0) {
-  second_most_freq <- names(sort(table(raw_data$Country[other_countries]), decreasing = TRUE)[1])
-  second_most_count <- sum(raw_data$Country == second_most_freq)
+  second_most_freq_country <- names(sort(table(raw_data_country$Country[other_countries]), decreasing = TRUE)[1])
+  second_most_count_country <- sum(raw_data_country$Country == second_most_freq_country)
 } else {
-  second_most_count <- 0
+  second_most_count_country <- 0
 }
 
 # e. Set sample size per country (use second most frequent country as guide)
-sample_size <- min(second_most_count, 500)  # Cap at 500 samples per country
-if(sample_size < 50) sample_size <- 50  # Ensure at least 50 samples per country
+sample_size_country <- min(second_most_count_country, 500)  # Cap at 500 samples per country
+if(sample_size_country < 50) sample_size_country <- 50  # Ensure at least 50 samples per country
 
 # f. Create balanced dataset
 set.seed(123)  # For reproducibility
-balanced_data <- data.frame()  # Empty dataframe to hold our balanced dataset
+balanced_data_country <- data.frame()  # Empty dataframe to hold our balanced dataset
 
-for(country in levels(raw_data$Country)) {
-  country_data <- raw_data[raw_data$Country == country, ]
+for(country in levels(raw_data_country$Country)) {
+  country_data <- raw_data_country[raw_data_country$Country == country, ]
   
   # If country has fewer samples than our target, use all of them
-  if(nrow(country_data) <= sample_size) {
-    sampled_data <- country_data
+  if(nrow(country_data) <= sample_size_country) {
+    sampled_data_country <- country_data
   } else {
     # Otherwise, take a random sample
-    sampled_data <- country_data[sample(1:nrow(country_data), sample_size), ]
+    sampled_data_country <- country_data[sample(1:nrow(country_data), sample_size_country), ]
   }
   
-  balanced_data <- rbind(balanced_data, sampled_data)
+  balanced_data_country <- rbind(balanced_data_country, sampled_data_country)
 }
 
 # g. Shuffle the balanced dataset
-balanced_data <- balanced_data[sample(1:nrow(balanced_data)), ]
+balanced_data_country <- balanced_data_country[sample(1:nrow(balanced_data_country)), ]
 
 # h. Check the new distribution
-balanced_counts <- table(balanced_data$Country)
+balanced_counts_country <- table(balanced_data_country$Country)
 print("Balanced country distribution:")
-print(balanced_counts)
+print(balanced_counts_country)
 
 # i. Visualize the balanced distribution
 par(mfrow = c(1, 2))
@@ -232,45 +232,45 @@ par(mfrow = c(1, 2))
 barplot(country_counts, main = "Original Country Distribution", 
         las = 2, cex.names = 0.7)
 # Balanced distribution
-barplot(balanced_counts, main = "Balanced Country Distribution", 
+barplot(balanced_counts_country, main = "Balanced Country Distribution", 
         las = 2, cex.names = 0.7)
 par(mfrow = c(1, 1))
 
 # j. Check rating distribution in balanced dataset
-rating_by_country <- table(balanced_data$Country, balanced_data$Ratings)
+rating_by_country <- table(balanced_data_country$Country, balanced_data_country$Ratings)
 print("Rating distribution by country in balanced dataset:")
 print(rating_by_country)
 
 # k. Split balanced data into training and testing sets (80/20 split)
 set.seed(123)
-train_index <- createDataPartition(balanced_data$Ratings, p = 0.8, list = FALSE)
-train_data <- balanced_data[train_index, ]
-test_data <- balanced_data[-train_index, ]
+train_index_country <- createDataPartition(balanced_data_country$Ratings, p = 0.8, list = FALSE)
+train_data_country <- balanced_data_country[train_index_country, ]
+test_data_country <- balanced_data_country[-train_index_country, ]
 
 # l. Build Random Forest model
-rf_model <- randomForest(
+rf_country_ratings_model <- randomForest(
   Ratings ~ Country,
-  data = train_data,
+  data = train_data_country,
   ntree = 50,
   importance = TRUE
 )
 
 # m. Print model summary
-print(rf_model)
+print(rf_country_ratings_model)
 
 # n. Make predictions on test data
-predictions <- predict(rf_model, test_data)
+predictions_country <- predict(rf_country_ratings_model, test_data_country)
 
 # o. Create confusion matrix for evaluation
-conf_matrix <- confusionMatrix(predictions, test_data$Ratings)
-print(conf_matrix)
+conf_matrix_country <- confusionMatrix(predictions_country, test_data_country$Ratings)
+print(conf_matrix_country)
 
 # p. Variable importance (only Country in this case)
-var_importance <- importance(rf_model)
-print(var_importance)
+var_importance_country <- importance(rf_country_ratings_model)
+print(var_importance_country)
 
 # q. Calculate rating distribution by country in our balanced dataset
-country_ratings <- balanced_data %>%
+country_ratings <- balanced_data_country %>%
   group_by(Country) %>%
   summarize(
     Total = n(),
@@ -284,7 +284,7 @@ print("Rating percentages by country (balanced data):")
 print(country_ratings)
 
 # r. Visualize rating distribution by country
-ggplot(balanced_data, aes(x = reorder(Country, -as.numeric(Ratings == "High")), fill = Ratings)) +
+ggplot(balanced_data_country, aes(x = reorder(Country, -as.numeric(Ratings == "High")), fill = Ratings)) +
   geom_bar(position = "fill") +
   scale_y_continuous(labels = scales::percent) +
   labs(title = "Rating Distribution by Country (Balanced Dataset)", 
@@ -295,14 +295,14 @@ ggplot(balanced_data, aes(x = reorder(Country, -as.numeric(Ratings == "High")), 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 # s. Calculate accuracy by country
-train_predictions <- predict(rf_model, train_data)
-train_results <- data.frame(
-  Country = train_data$Country,
-  Actual = train_data$Ratings,
-  Predicted = train_predictions
+train_predictions_country <- predict(rf_country_ratings_model, train_data_country)
+train_results_country <- data.frame(
+  Country = train_data_country$Country,
+  Actual = train_data_country$Ratings,
+  Predicted = train_predictions_country
 )
 
-country_accuracy <- train_results %>%
+country_accuracy <- train_results_country %>%
   group_by(Country) %>%
   summarize(
     Total = n(),
@@ -314,18 +314,13 @@ country_accuracy <- train_results %>%
 print("Prediction accuracy by country:")
 print(country_accuracy)
 
-# t. Check model performance on original unbalanced data
-orig_predictions <- predict(rf_model, raw_data)
-orig_accuracy <- mean(orig_predictions == raw_data$Ratings)
-print(paste0("Model accuracy on original unbalanced data: ", round(orig_accuracy * 100, 2), "%"))
-
 # u. Predict high rating percentages for each country
-for(country in levels(balanced_data$Country)) {
+for(country in levels(balanced_data_country$Country)) {
   # Create test data for this country
-  country_test <- data.frame(Country = factor(country, levels = levels(balanced_data$Country)))
+  country_test <- data.frame(Country = factor(country, levels = levels(balanced_data_country$Country)))
   
   # Get predictions for this country
-  country_pred <- predict(rf_model, country_test, type = "prob")
+  country_pred <- predict(rf_country_ratings_model, country_test, type = "prob")
   
   # Print results
   cat(paste0("Predicted high rating percentage for ", country, ": ", 
@@ -333,14 +328,14 @@ for(country in levels(balanced_data$Country)) {
 }
 
 # v. Final performance metrics
-final_metrics <- data.frame(
-  Accuracy = conf_matrix$overall["Accuracy"],
-  Sensitivity = conf_matrix$byClass["Sensitivity"],
-  Specificity = conf_matrix$byClass["Specificity"],
-  Precision = conf_matrix$byClass["Pos Pred Value"]
+final_metrics_country <- data.frame(
+  Accuracy = conf_matrix_country$overall["Accuracy"],
+  Sensitivity = conf_matrix_country$byClass["Sensitivity"],
+  Specificity = conf_matrix_country$byClass["Specificity"],
+  Precision = conf_matrix_country$byClass["Pos Pred Value"]
 )
-print("Model performance metrics (on balanced test data):")
-print(final_metrics)
+print("Model performance metrics:")
+print(final_metrics_country)
 
 #==================================================================================
 # Analysis 4: What specific actions should be taken to improve customer 
@@ -355,9 +350,9 @@ country_summary <- data %>%
   summarise(
     Total_Customers = n(),
     High_Ratings = sum(Ratings == "High"),
-    Satisfaction_Rate = round((High_Ratings / Total_Customers) * 100, 1)
+    Country_Satisfaction_Rate = round((High_Ratings / Total_Customers) * 100, 1)
   ) %>%
-  arrange(Satisfaction_Rate)
+  arrange(Country_Satisfaction_Rate)
 
 print("Country Satisfaction Rates:")
 print(country_summary)
@@ -365,36 +360,36 @@ print(country_summary)
 # b. Categorize countries by performance
 country_summary <- country_summary %>%
   mutate(
-    Performance_Level = case_when(
-      Satisfaction_Rate >= 70 ~ "Good",
-      Satisfaction_Rate >= 50 ~ "Average",
+    Country_Performance_Level = case_when(
+      Country_Satisfaction_Rate >= 70 ~ "Good",
+      Country_Satisfaction_Rate >= 50 ~ "Average",
       TRUE ~ "Needs Improvement"
     )
   )
 
 # c. Create action recommendations
-recommendations <- country_summary %>%
+recommendations_country <- country_summary %>%
   mutate(
-    Recommended_Action = case_when(
-      Performance_Level == "Needs Improvement" ~ "Priority: Immediate service improvement needed",
-      Performance_Level == "Average" ~ "Focus: Targeted improvements to reach 70%+",
+    Country_Recommended_Action = case_when(
+      Country_Performance_Level == "Needs Improvement" ~ "Priority: Immediate service improvement needed",
+      Country_Performance_Level == "Average" ~ "Focus: Targeted improvements to reach 70%+",
       TRUE ~ "Maintain: Continue current good practices"
     ),
-    Target_Satisfaction = case_when(
-      Performance_Level == "Needs Improvement" ~ Satisfaction_Rate + 30,
-      Performance_Level == "Average" ~ 75,
-      TRUE ~ Satisfaction_Rate + 5
+    Country_Target_Satisfaction = case_when(
+      Country_Performance_Level == "Needs Improvement" ~ Country_Satisfaction_Rate + 30,
+      Country_Performance_Level == "Average" ~ 75,
+      TRUE ~ Country_Satisfaction_Rate + 5
     )
   )
 
 print("Country Recommendations:")
-print(recommendations %>% select(Country, Satisfaction_Rate, Performance_Level, Recommended_Action))
+print(recommendations_country %>% select(Country, Country_Satisfaction_Rate, Country_Performance_Level, Country_Recommended_Action))
 
 # d. Visualize current vs target satisfaction
-ggplot(recommendations, aes(x = reorder(Country, Satisfaction_Rate))) +
-  geom_col(aes(y = Satisfaction_Rate, fill = Performance_Level), alpha = 0.7) +
-  geom_point(aes(y = Target_Satisfaction), color = "red", size = 3) +
-  geom_segment(aes(xend = Country, y = Satisfaction_Rate, yend = Target_Satisfaction), 
+ggplot(recommendations_country, aes(x = reorder(Country, Country_Satisfaction_Rate))) +
+  geom_col(aes(y = Country_Satisfaction_Rate, fill = Country_Performance_Level), alpha = 0.7) +
+  geom_point(aes(y = Country_Target_Satisfaction), color = "red", size = 3) +
+  geom_segment(aes(xend = Country, y = Country_Satisfaction_Rate, yend = Country_Target_Satisfaction), 
                color = "red", linetype = "dashed") +
   coord_flip() +
   labs(title = "Current vs Target Satisfaction Rates",
@@ -404,20 +399,20 @@ ggplot(recommendations, aes(x = reorder(Country, Satisfaction_Rate))) +
   theme_minimal()
 
 # e. Simple action plan summary
-action_summary <- recommendations %>%
-  count(Performance_Level, Recommended_Action) %>%
+action_summary <- recommendations_country %>%
+  count(Country_Performance_Level, Country_Recommended_Action) %>%
   rename(Countries_Count = n)
 
 print("Action Plan Summary:")
 print(action_summary)
 
 # f. Priority countries (lowest satisfaction rates)
-priority_countries <- head(recommendations, 3)
+priority_countries <- head(recommendations_country, 3)
 
 cat("\nTOP 3 PRIORITY COUNTRIES FOR IMPROVEMENT:\n")
 for(i in 1:3) {
   cat(paste0(i, ". ", priority_countries$Country[i], 
-             " (", priority_countries$Satisfaction_Rate[i], "% satisfaction)\n"))
-  cat("   Action:", priority_countries$Recommended_Action[i], "\n\n")
+             " (", priority_countries$Country_Satisfaction_Rate[i], "% satisfaction)\n"))
+  cat("   Action:", priority_countries$Country_Recommended_Action[i], "\n\n")
 }
 
