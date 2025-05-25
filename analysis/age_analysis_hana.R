@@ -1,6 +1,5 @@
 # Analysis 1 : What are the behavioral & satisfaction patterns of diff cust age
 
-
 library(dplyr)
 library(ggplot2)
 library(tidyr)
@@ -94,7 +93,6 @@ library(dplyr)
 library(readr)
 
 retail_data_proc_temp <- read_csv("retail_data_proc_temp.csv")
-#retail_data_proc_temp <- retail_data_proc 
 
 # Use age only to predict ratings
 
@@ -114,7 +112,7 @@ summary(model_log_age)
 
 # Predict on test set
 pred_log_age_prob  <- predict(model_log_age, newdata = age_test, type = "response")
-pred_log_age_class <- ifelse(pred_log_age_prob > 0.3613, "High", "Low")
+pred_log_age_class <- ifelse(pred_log_age_prob > 0.6256, "High", "Low")
 
 # Confusion Matrix
 confusionMatrix(factor(pred_log_age_class, levels = c("Low","High")),age_test$Ratings)
@@ -172,7 +170,7 @@ model_log_full <- glm(Ratings ~ .,data = full_train, family = binomial)
 summary(model_log_full)
 
 pred_log_full_prob  <- predict(model_log_full,newdata = full_test,type= "response")
-pred_log_full_class <- ifelse(pred_log_full_prob > 0.3538, "High", "Low")
+pred_log_full_class <- ifelse(pred_log_full_prob > 0.5755, "High", "Low")
 
 # Confusion matrix for Logistic regression
 confusionMatrix(
@@ -439,6 +437,8 @@ ggplot(retail_data_factor, aes(x = Ratings, y = Total_Amount, fill = Ratings)) +
   labs(title = "Total Amount by Ratings across Age and Income",
        y = "Total Amount Spent") +
   theme_minimal()
+
+
 
 
 
