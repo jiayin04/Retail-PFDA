@@ -28,9 +28,6 @@ library(ggmosaic)
 library(randomForest)
 library(caret)
 library(tidyverse)
-library(tidygeocoder)
-library(leaflet)
-library(rgdal)
 library(RColorBrewer)
 
 # View the structure of your dataset  
