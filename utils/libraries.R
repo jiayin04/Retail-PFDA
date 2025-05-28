@@ -8,7 +8,7 @@ required_packages <- c(
   "lubridate", "hms", "readr", "car", "MetBrewer", "patchwork",
   "reshape2", "caret", "randomForest", "xgboost", "pROC",
   "plotly", "dendextend", "viridis", "purrr", "cluster", "factoextra", "NbClust", "fmsb",
-  "vcd"
+  "vcd", "broom", "forcats", "arm", "RColorBrewer", "scales", "nnet"
 )
 
 # Install any packages that are not already installed
@@ -46,15 +46,19 @@ library(gender)       # Predict gender from first names
 
 # ─── Statistical Analysis ───
 library(car)          # Companion to Applied Regression (e.g., MANOVA)
+library(broom)        # Convert model objects to tidy data
+library(arm)          # Bayesian analysis and regression modeling
 
 # ─── Functional Programming ───
 library(purrr)        # Apply functions across lists/collections (e.g., map, reduce)
+library(forcats)      # Tools for working with factors
 
 # ─── Machine Learning ───
 library(caret)        # Training/testing splits, preprocessing, evaluation
 library(randomForest) # Random Forest model
 library(xgboost)      # Gradient boosting classifier
 library(pROC)         # AUC and ROC curve analysis
+library(nnet)         # Neural networks and multinomial models
 
 # ─── Visualization ───
 library(ggplot2)      # Standard plotting library
@@ -63,6 +67,9 @@ library(MetBrewer)    # Beautiful color palettes for plots
 library(reshape2)     # Reshape data frames (e.g., melt and cast operations)
 library(viridis)      # Color palettes optimized for colorblind and grayscale viewing
 library(vcd)          # For plotting Mosaic plot
+library(RColorBrewer) # Color palettes for plots and maps
+library(scales)       # Scale functions for visualization
+library(fmsb)         # Create radar/spider charts
 
 # ─── Interactive / Clustering ───
 library(plotly)       # Interactive 2D/3D plots
@@ -70,5 +77,4 @@ library(dendextend)   # Enhanced dendrograms (e.g., color branches)
 library(cluster)      # Evaluate the quality of clustering
 library(factoextra)   # For clustering visualization
 library(NbClust)      # Determine optimal number of clusters
-library(fmsb)         # Create radar/spider charts
 

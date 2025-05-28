@@ -1,9 +1,6 @@
 # main.R
 # Main script that consisted of the entire analysis workflow
 
-# Set working directory to the project root
-# setwd("~/path/to/retail_analysis")
-
 # Source utility scripts
 source("utils/helper_functions.R")
 source("preprocessing/data_cleaning.R")
@@ -47,6 +44,11 @@ source("analysis/age_analysis_hana.R")
 # KOK JIA YIN (TP071062) - To evaluate the influence of product preferences on purchasing behavior and customer satisfaction. 
 source("analysis/product_analysis_jiayin.R")
 
+# TEH JUN HENG (TP067767) - To investigate the influence of geographical location on purchasing behaviour and customer satisfaction. 
+source("analysis/country_analysis_junheng.R")
+
+# LEE AIK YEN (TP070648) - To study the influence of country, age group towards purchasing behaviour and customer satisfaction.
+source("analysis/analysis_aikyen.R")
 
 
 ### ─────────────────────────────────────────────
