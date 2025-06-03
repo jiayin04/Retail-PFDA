@@ -98,7 +98,7 @@ ggplot(data, aes(x = Country, y = Ratings_numeric, fill = Country)) +
   scale_fill_viridis_d()
 
 # l. Visualize average rating per country
-ggplot(avg_ratings, aes(x = Country, y = Average_Rating, fill = Country)) +
+ggplot(avg_country_ratings, aes(x = Country, y = Average_Rating, fill = Country)) +
   geom_col() +
   labs(title = "Average Customer Rating by Country", y = "Average Rating") +
   theme_minimal() +
