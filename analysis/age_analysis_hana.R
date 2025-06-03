@@ -5,7 +5,7 @@ library(ggplot2)
 library(tidyr)
 library(readr)
 
-retail_data_proc <- read_csv("retail_data_proc.csv")
+# retail_data_proc <- read_csv("retail_data_proc.csv")
 
 retail_data_proc_temp <- retail_data_proc %>% 
   mutate(
@@ -83,9 +83,6 @@ ggplot(heatmap_data, aes(x = Income, y = Gender, fill = avg_total)) +
 #########################################################################################
 
 # Analysis 2 : Predicting satisfaction with age & purchasing behavior
-
-install.packages("caret")
-
 library(randomForest)
 library(caret)
 library(pROC)
@@ -211,12 +208,6 @@ auc(roc_full_rf)
 ################################################################################################
 
 #Analysis 3 : Customer profiling based on behavior, satisfaction & age
-
-install.packages("factoextra")
-install.packages("NbClust")
-install.packages("fmsb")
-
-
 library(dplyr)
 library(ggplot2)
 library(cluster)
