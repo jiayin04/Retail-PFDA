@@ -8,7 +8,7 @@ required_packages <- c(
   "lubridate", "hms", "readr", "car", "MetBrewer", "patchwork",
   "reshape2", "caret", "randomForest", "xgboost", "pROC",
   "plotly", "dendextend", "viridis", "purrr", "cluster", "factoextra", "NbClust", "fmsb",
-  "vcd", "broom", "forcats", "arm", "RColorBrewer", "scales", "nnet"
+  "vcd", "broom", "forcats", "arm", "RColorBrewer", "scales", "nnet", "recompanion"
 )
 
 # Install any packages that are not already installed

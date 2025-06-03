@@ -164,8 +164,6 @@ preprocess <- function(retail_data) {
   retail_data$Date <- as.numeric(as.Date(retail_data$Date))
   cat_cols <- c("Gender","Income", "Product_Category", "Product_Brand", "Product_Type", "Order_Status", "Products", "Date")
   
-  # retail_data$Date <- as.numeric(as.Date(retail_data$Date, format = "%m-%d-%Y"))
-  
   # Apply KNN Imputation (k = 5)
   retail_data <- kNN(retail_data, variable = cat_cols, k=5)
   
@@ -175,6 +173,10 @@ preprocess <- function(retail_data) {
   # After imputation, convert numeric Date back to Date format
   retail_data$Date <- as.Date(retail_data$Date, origin = "1970-01-01")
   
+  # View the dataset
+  View(retail_data)
+  str(retail_data)
+  summary(retail_data)
   
   ### ─────────────────────────────────────────────
   ### Time Imputation (Linear Interpolation)
