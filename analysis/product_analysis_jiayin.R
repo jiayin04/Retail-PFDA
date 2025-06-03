@@ -516,7 +516,7 @@ print(elbow_method_plot)
 pca_result <- prcomp(customer_cluster_data_scaled)
 pca_data <- data.frame(pca_result$x)
 
-plot_ly(
+plotly_3d <- plot_ly(
   pca_data,
   x = ~PC1, y = ~PC2, z = ~PC3,
   type = "scatter3d",
@@ -542,6 +542,7 @@ plot_ly(
     margin = list(l = 0, r = 0, b = 0, t = 40)
   )
 
+plotly_3d
 
 # [Barplot]
 # Create a numeric version of Ratings for averaging (Low = 1, High = 2)
