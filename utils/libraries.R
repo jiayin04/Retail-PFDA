@@ -8,7 +8,8 @@ required_packages <- c(
   "lubridate", "hms", "readr", "car", "MetBrewer", "patchwork",
   "reshape2", "caret", "randomForest", "xgboost", "pROC",
   "plotly", "dendextend", "viridis", "purrr", "cluster", "factoextra", "NbClust", "fmsb",
-  "vcd", "broom", "forcats", "arm", "RColorBrewer", "scales", "nnet"
+  "vcd", "broom", "forcats", "arm", "RColorBrewer", "scales", "nnet",
+  "shiny", "shinydashboard", "DT", "shinycssloaders", "tidyverse"
 )
 
 # Install any packages that are not already installed
@@ -77,4 +78,13 @@ library(dendextend)   # Enhanced dendrograms (e.g., color branches)
 library(cluster)      # Evaluate the quality of clustering
 library(factoextra)   # For clustering visualization
 library(NbClust)      # Determine optimal number of clusters
+
+# ─── Shiny and Dashboard ───
+library(shiny)        # Web application framework
+library(shinydashboard) # Dashboard UI components
+library(DT)           # Interactive tables
+library(shinycssloaders) # Loading spinners for Shiny
+
+# ─── Additional Utilities ───
+library(tidyverse)    # Collection of packages for data science
 
