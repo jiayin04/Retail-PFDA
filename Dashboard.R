@@ -955,15 +955,16 @@ server <- function(input, output, session) {
         values_to = "Value"
       )
     
-    p <- ggplot(age_data, aes(x = Age, y = Value)) +
-      geom_point(alpha = 0.3) +
-      geom_smooth(method = "loess", se = FALSE, color = "blue") +
-      facet_wrap(~ Measure, scales = "free_y") +
-      labs(
-        title = "Relationship Between Age and Total Amount / Ratings",
-        x = "Age",
-        y = "Value"
-      )
+    p <- age_scatter_plot
+      # ggplot(age_data, aes(x = Age, y = Value)) +
+      # geom_point(alpha = 0.3) +
+      # geom_smooth(method = "loess", se = FALSE, color = "blue") +
+      # facet_wrap(~ Measure, scales = "free_y") +
+      # labs(
+      #   title = "Relationship Between Age and Total Amount / Ratings",
+      #   x = "Age",
+      #   y = "Value"
+      # )
     
     ggplotly(p)
   })

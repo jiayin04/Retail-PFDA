@@ -40,7 +40,7 @@ age_data <- retail_data_proc_temp %>%
   )
 
 #Faceted scatter plot for continuous age & total amount, ratings
-ggplot(age_data, aes(x = Age, y = Value)) +
+age_scatter_plot <- ggplot(age_data, aes(x = Age, y = Value)) +
   geom_point(alpha = 0.3) +
   geom_smooth(method = "loess", se = FALSE, color = "blue") +
   facet_wrap(~ Measure, scales = "free_y") +
@@ -49,6 +49,8 @@ ggplot(age_data, aes(x = Age, y = Value)) +
     x     = "Age",
     y     = "Value"
   )
+
+age_scatter_plot
 
 #Faceted Boxplot for age group & total amount, ratings
 ggplot(age_data, aes(x = Age_Group, y = Value, fill = Measure)) +
@@ -115,7 +117,7 @@ pred_log_age_class <- ifelse(pred_log_age_prob > 0.6256, "High", "Low")
 confusionMatrix(factor(pred_log_age_class, levels = c("Low","High")),age_test$Ratings)
 
 # ROC for logistic regression
-roc_age_log <- roc(age_test$Ratings, pred_log_age_prob)
+roc_age_log <- pROC::roc(age_test$Ratings, pred_log_age_prob)
 plot(roc_age_log, main = "ROC Curve – Logistic (Age Only)")
 auc(roc_age_log)
 
@@ -139,7 +141,7 @@ rf_age_class <- predict(rf_age_model, newdata = age_test)
 confusionMatrix(rf_age_class, age_test$Ratings)
 
 # ROC Curve for Random Forest
-roc_age_rf <- roc(response = ifelse(age_test$Ratings == "High", 1, 0),
+roc_age_rf <- pROC::roc(response = ifelse(age_test$Ratings == "High", 1, 0),
                   predictor = rf_age_prob)
 plot(roc_age_rf, main = "ROC Curve – Random Forest (Age Only)")
 auc(roc_age_rf)
@@ -176,7 +178,7 @@ confusionMatrix(
 )
 
 #ROC for Logistics regression model
-roc_full_log <- roc(full_test$Ratings, pred_log_full_prob)
+roc_full_log <- pROC::roc(full_test$Ratings, pred_log_full_prob)
 plot(roc_full_log, main = "ROC Curve – Logistic Regression")
 auc(roc_full_log)
 
@@ -201,7 +203,7 @@ rf_full_class <- predict(rf_full_model,newdata = full_test)
 confusionMatrix(rf_full_class, full_test$Ratings)
 
 # ROC curve for Random Forest
-roc_full_rf <- roc(as.numeric(full_test$Ratings) - 1, rf_full_prob)
+roc_full_rf <- pROC::roc(as.numeric(full_test$Ratings) - 1, rf_full_prob)
 plot(roc_full_rf, main = "ROC Curve – Random Forest")
 auc(roc_full_rf)
 
@@ -428,21 +430,3 @@ ggplot(retail_data_factor, aes(x = Ratings, y = Total_Amount, fill = Ratings)) +
   labs(title = "Total Amount by Ratings across Age and Income",
        y = "Total Amount Spent") +
   theme_minimal()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
