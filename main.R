@@ -20,6 +20,7 @@ if (!dir.exists(WD)) stop("Working directory does not exist!")
 # Import dataset
 file_path <- file.path(WD, "retail_data.csv")
 retail_full_data <- read_csv(file_path)
+str(retail_full_data)
 View(retail_full_data)
 
 
@@ -33,7 +34,7 @@ retail_data_proc <- preprocess(retail_full_data)
 str(retail_data_proc)
 summary(retail_data_proc)
 View(retail_data_proc)
-
+colSums(is.na(retail_data_proc))
 
 ### ─────────────────────────────────────────────
 ### 4. Individual Analyses

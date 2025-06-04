@@ -105,10 +105,6 @@ preprocess <- function(retail_data) {
       Amount = round(retail_imputed$ximp$Amount, 2)
     )
   
-  # Verify the structure
-  str(retail_data)
-  View(retail_data)
-  
   
   ### ─────────────────────────────────────────────
   ### Handle Categorical with MICE
@@ -152,10 +148,6 @@ preprocess <- function(retail_data) {
     ) |> 
     select(-First_Name, -Inferred_Gender, -Name)  # Clean up
   
-  # View the dataset
-  View(retail_data)
-  str(retail_data)
-  summary(retail_data)
   
   ### ─────────────────────────────────────────────
   ### KNN Imputation (VIM) for mixed columns
@@ -172,11 +164,6 @@ preprocess <- function(retail_data) {
   
   # After imputation, convert numeric Date back to Date format
   retail_data$Date <- as.Date(retail_data$Date, origin = "1970-01-01")
-  
-  # View the dataset
-  View(retail_data)
-  str(retail_data)
-  summary(retail_data)
   
   ### ─────────────────────────────────────────────
   ### Time Imputation (Linear Interpolation)
