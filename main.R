@@ -36,6 +36,7 @@ summary(retail_data_proc)
 View(retail_data_proc)
 colSums(is.na(retail_data_proc))
 
+
 ### ─────────────────────────────────────────────
 ### 4. Individual Analyses
 ### ─────────────────────────────────────────────
@@ -56,3 +57,9 @@ source("analysis/analysis_aikyen.R")
 ### 5. Group Analysis
 ### ─────────────────────────────────────────────
 source("analysis/group_predictive_analysis.R")
+
+
+### ─────────────────────────────────────────────
+### 6. GUI Display
+### ─────────────────────────────────────────────
+source("Dashboard.R")

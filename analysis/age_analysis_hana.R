@@ -1,20 +1,22 @@
 # Analysis 1 : What are the behavioral & satisfaction patterns of diff cust age
 
-library(dplyr)
-library(ggplot2)
-library(tidyr)
-library(readr)
+library(dplyr) #Data manipulation (summary, grouping, selecting)
+library(ggplot2) #Data visualisation (Make nice looking plots)
+library(tidyr) #Tidy up data (turn multiple column into long format w one column)
+library(readr) #To read file
 
 # retail_data_proc <- read_csv("retail_data_proc.csv")
 
+#Creating age group and total amt
 retail_data_proc_temp <- retail_data_proc %>% 
   mutate(
-    Age_Group   = cut(Age,
+    Age_Group   = cut(Age, 
                       breaks = c(0, 25, 35, 45, 60, 100),
                       labels = c("Under 25", "25–34", "35–44", "45–59", "60+")),
     Total_Amount = Amount * Purchase_Quantity
   )
 
+#Saving the csv
 write.csv(retail_data_proc_temp, "retail_data_proc_temp.csv")
 
 #Summarization 
@@ -23,7 +25,7 @@ summary_table <- retail_data_proc_temp %>%
   summarise(
     avg_total_amount = mean(Total_Amount, na.rm = TRUE),
     count            = n(),
-    .groups          = "drop"
+    .groups          = "drop" #Ungroup data back after summary
   ) %>%
   arrange(desc(avg_total_amount))
 
@@ -33,7 +35,8 @@ print(summary_table)
 # Convert ratings (scatter and boxplot)
 age_data <- retail_data_proc_temp %>%
   mutate(Ratings_Num = ifelse(Ratings == "High", 1, 0)) %>%
-  pivot_longer(
+  #Combining total amt and rating into single column 
+  pivot_longer( 
     cols      = c(Total_Amount, Ratings_Num),
     names_to  = "Measure",
     values_to = "Value"
@@ -43,6 +46,7 @@ age_data <- retail_data_proc_temp %>%
 age_scatter_plot <- ggplot(age_data, aes(x = Age, y = Value)) +
   geom_point(alpha = 0.3) +
   geom_smooth(method = "loess", se = FALSE, color = "blue") +
+  #Splits the plot by measure column (ttl amt, rating)
   facet_wrap(~ Measure, scales = "free_y") +
   labs(
     title = "Relationship Between Age and Total Amount / Ratings",
@@ -86,8 +90,8 @@ ggplot(heatmap_data, aes(x = Income, y = Gender, fill = avg_total)) +
 
 # Analysis 2 : Predicting satisfaction with age & purchasing behavior
 library(randomForest)
-library(caret)
-library(pROC)
+library(caret) #Splitting data, evaluate model performance, sampling
+library(pROC) #ROC curve, calculate AUC
 library(dplyr)
 library(readr)
 
@@ -99,7 +103,7 @@ age_mod_data <- retail_data_proc_temp %>%
   select(Age, Ratings) %>%
   mutate(Ratings = factor(Ratings, levels = c("Low","High")))
 
-# Train-test split
+# Train-test split (0.7 training, 0.3 testing)
 set.seed(123)
 train_idx_age <- sample(nrow(age_mod_data), 0.7 * nrow(age_mod_data))
 age_train <- age_mod_data[train_idx_age, ]
@@ -212,13 +216,10 @@ auc(roc_full_rf)
 #Analysis 3 : Customer profiling based on behavior, satisfaction & age
 library(dplyr)
 library(ggplot2)
-library(cluster)
 library(factoextra)  # for clustering visualization
-library(NbClust)     
-library(fmsb)
+library(fmsb) #Radar chart
 
 retail_data_proc_temp <- readr::read_csv("retail_data_proc_temp.csv")
-#retail_data_proc_temp <- retail_data_proc 
 
 #Select only Age and Ratings
 profile_data <- retail_data_proc_temp %>%
@@ -366,7 +367,6 @@ library(vcd) # Mosaic plot
 library(readr)
 
 retail_data_proc_temp <- read_csv("retail_data_proc_temp.csv")
-#retail_data_proc_temp <- retail_data_proc 
 
 # Violin Plot: Age vs Total Amount by Ratings
 ggplot(retail_data_proc_temp, aes(x = Age_Group, y = Total_Amount, fill = Ratings)) +
@@ -417,7 +417,7 @@ mosaic(~ Customer_Segment + Ratings, data = retail_data_factor, shade = TRUE, ma
 # Bar chart profiling low-rated high-value customers
 ggplot(low_rate_high_value, aes(x = Customer_Segment, fill = Income)) +
   geom_bar(position = "fill") +
-  #geom_bar(position = "dodge") +  #see which ver u want to use
+  #geom_bar(position = "dodge") +  #diff ver of visualisation
   facet_wrap(~ Gender) +
   labs(title = "Low-Rated High-Value Customers by Segment, Income, and Gender",
        x = "Customer Segment", y = "Count") +
