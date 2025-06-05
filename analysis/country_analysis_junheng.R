@@ -1,3 +1,153 @@
+# Load libraries
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(viridis)
+library(randomForest)
+library(caret)
+library(tidyverse)
+library(patchwork)
+
+# View the structure of your dataset  
+data <- retail_data_proc
+str(data)
+
+#==================================================================================
+# Analysis 1: What are the patterns and distributions of customer satisfaction 
+# ratings across different countries, and how do the rating profiles vary geographically?
+#==================================================================================
+
+#---Descriptive Analysis---#
+
+# a. Convert 'Ratings' and 'Country' to character columns
+data$Ratings <- as.character(data$Ratings)
+data$Country <- as.character(data$Country)
+
+# b. Create the contingency table
+table_ratings <- table(data$Country, data$Ratings)
+
+# c. View the table to ensure no empty categories
+print(table_ratings)
+
+# d. Convert Ratings to numeric for average rating analysis
+data$Ratings_numeric <- ifelse(data$Ratings == "Low", 1, 5)
+
+# e. Calculate descriptive statistics by ratings
+rating_stats_by_country <- data %>%
+  group_by(Country) %>%
+  summarise(
+    Count = n(),
+    Mean = mean(Ratings_numeric, na.rm = TRUE),
+    Median = median(Ratings_numeric, na.rm = TRUE),
+    SD = sd(Ratings_numeric, na.rm = TRUE),
+    Min = min(Ratings_numeric, na.rm = TRUE),
+    Max = max(Ratings_numeric, na.rm = TRUE)
+  ) %>%
+  arrange(desc(Mean))
+
+print(rating_stats_by_country)
+
+# f. Proportional bar chart of ratings by country
+plot_proportional_ratings_country <- ggplot(data, aes(x = Country, fill = Ratings)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Proportional Customer Ratings by Country", y = "Ratings") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("Low" = "red", "High" = "blue"))
+
+print(plot_proportional_ratings_country)
+
+# g. Heatmap of ratings by country
+plot_heatmap_ratings_country <- ggplot(as.data.frame(as.table(table_ratings)), aes(Var1, Var2, fill = Freq)) +
+  geom_tile() +
+  labs(title = "Heatmap of Ratings by Country", x = "Country", y = "Rating") +
+  theme_minimal() +
+  scale_fill_gradient(low = "white", high = "blue")
+
+print(plot_heatmap_ratings_country)
+
+# h. Stacked bar chart (absolute counts)
+plot_stacked_ratings_country <- ggplot(data, aes(x = Country, fill = Ratings)) +
+  geom_bar(position = "stack") +
+  labs(title = "Absolute Customer Ratings by Country", y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("Low" = "red", "High" = "blue"))
+
+print(plot_stacked_ratings_country)
+
+# i. Total number of ratings per country
+rating_count_per_country <- data %>%
+  group_by(Country) %>%
+  summarise(Total_Ratings = n())
+
+plot_total_ratings_country <- ggplot(rating_count_per_country, aes(x = Country, y = Total_Ratings, fill = Country)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Total Number of Ratings per Country", y = "Total Ratings") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_viridis_d()
+
+print(plot_total_ratings_country)
+
+# j. Calculate average rating per country
+avg_country_ratings <- data %>%
+  group_by(Country) %>%
+  summarise(Average_Rating = mean(Ratings_numeric, na.rm = TRUE))
+
+print(avg_country_ratings)
+
+# k. Violin plot of ratings by country
+plot_violin_ratings_country <- ggplot(data, aes(x = Country, y = Ratings_numeric, fill = Country)) +
+  geom_violin(trim = FALSE, alpha = 0.7) +
+  geom_boxplot(width = 0.1, fill = "white", alpha = 0.5) +
+  labs(title = "Distribution of Ratings by Country", y = "Rating Score") +
+  theme_minimal() +
+  scale_fill_viridis_d()
+
+print(plot_violin_ratings_country)
+
+# l. Visualize average rating per country
+plot_avg_ratings_country <- ggplot(avg_country_ratings, aes(x = Country, y = Average_Rating, fill = Country)) +
+  geom_col() +
+  labs(title = "Average Customer Rating by Country", y = "Average Rating") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_viridis_d()
+
+print(plot_avg_ratings_country)
+
+#==================================================================================
+# Analysis 2: Is there a statistically significant difference in customer 
+# satisfaction ratings among countries, and which specific country pairs show 
+# meaningful differences in their rating distributions?
+#==================================================================================
+
+#---Diagnostic Analysis---#
+
+# a. Perform Chi-square test if no zero counts
+if (all(table_ratings > 0)) {
+  chisq_country_result <- chisq.test(table_ratings)
+  print(chisq_country_result)
+} else {
+  # Perform Fisher's Exact Test if there are zero counts
+  fisher_country_result <- fisher.test(table_ratings)
+  print(fisher_country_result)
+}
+
+# b. Perform ANOVA test to compare mean ratings
+anova_country_rating <- aov(Ratings_numeric ~ Country, data = data)
+summary(anova_country_rating)
+
+anova_country_model <- aov(Ratings_numeric ~ Country, data = data)
+
+# c. Run Tukey HSD post-hoc test
+tukey_country_result <- TukeyHSD(anova_country_model)
+
+# d. View results
+print(tukey_country_result)
+
 #==================================================================================
 # Analysis 3: Can we accurately predict customer satisfaction ratings based on 
 # country location, and which countries are most likely to generate high customer 
@@ -131,9 +281,9 @@ print(country_predictions_logistic)
 
 # h. Visualize predicted probabilities from logistic regression
 plot_logistic_country <- ggplot(country_predictions_logistic, 
-                                aes(x = reorder(Country, Predicted_High_Probability), 
-                                    y = Predicted_High_Probability, 
-                                    fill = Predicted_High_Probability)) +
+                        aes(x = reorder(Country, Predicted_High_Probability), 
+                            y = Predicted_High_Probability, 
+                            fill = Predicted_High_Probability)) +
   geom_col(alpha = 0.8) +
   geom_text(aes(label = paste0(Predicted_High_Probability, "%")), 
             hjust = -0.1, size = 3.5, fontface = "bold") +
@@ -215,7 +365,7 @@ print("=== RATING PERCENTAGES BY COUNTRY (BALANCED DATA) ===")
 print(country_ratings)
 
 # g. Visualize rating distribution by country
-ggplot(balanced_data_country, aes(x = reorder(Country, -as.numeric(Ratings == "High")), fill = Ratings)) +
+plot_rating_distribution_country <- ggplot(balanced_data_country, aes(x = reorder(Country, -as.numeric(Ratings == "High")), fill = Ratings)) +
   geom_bar(position = "fill") +
   scale_y_continuous(labels = scales::percent) +
   labs(title = "Rating Distribution by Country (Balanced Dataset)", 
@@ -224,6 +374,8 @@ ggplot(balanced_data_country, aes(x = reorder(Country, -as.numeric(Ratings == "H
   theme_minimal() +
   scale_fill_manual(values = c("Low" = "#E69F00", "High" = "#56B4E9")) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(plot_rating_distribution_country)
 
 # h. Calculate accuracy by country
 train_predictions_country <- predict(rf_country_ratings_model, train_data_country)
@@ -311,6 +463,20 @@ print("=== RANDOM FOREST DETAILED METRICS ===")
 print(final_metrics_country_rf)
 
 #==================================================================================
+# SIDE-BY-SIDE COMPARISON
+#==================================================================================
+
+# Create side-by-side plots
+side_by_side_plots_country <- plot_logistic_country + plot_rf_country + 
+  plot_layout(ncol = 2) +
+  plot_annotation(
+    title = "Model Predictions Comparison: High Rating Probabilities by Country",
+    theme = theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
+  )
+
+print(side_by_side_plots_country)
+
+#==================================================================================
 # Model Comparison
 #==================================================================================
 
@@ -339,3 +505,84 @@ performance_comparison_country <- data.frame(
 
 print("=== FINAL MODEL PERFORMANCE COMPARISON ===")
 print(performance_comparison_country)
+
+#==================================================================================
+# Analysis 4: What specific actions should be taken to improve customer 
+# satisfaction ratings in each country?
+#==================================================================================
+
+#---Prescriptive Analysis---#
+
+# a. Calculate satisfaction rate by country
+country_summary <- data %>%
+  group_by(Country) %>%
+  summarise(
+    Total_Customers = n(),
+    High_Ratings = sum(Ratings == "High"),
+    Country_Satisfaction_Rate = round((High_Ratings / Total_Customers) * 100, 1)
+  ) %>%
+  arrange(Country_Satisfaction_Rate)
+
+print("Country Satisfaction Rates:")
+print(country_summary)
+
+# b. Categorize countries by performance
+country_summary <- country_summary %>%
+  mutate(
+    Country_Performance_Level = case_when(
+      Country_Satisfaction_Rate >= 70 ~ "Good",
+      Country_Satisfaction_Rate >= 50 ~ "Average",
+      TRUE ~ "Needs Improvement"
+    )
+  )
+
+# c. Create action recommendations
+recommendations_country <- country_summary %>%
+  mutate(
+    Country_Recommended_Action = case_when(
+      Country_Performance_Level == "Needs Improvement" ~ "Priority: Immediate service improvement needed",
+      Country_Performance_Level == "Average" ~ "Focus: Targeted improvements to reach 70%+",
+      TRUE ~ "Maintain: Continue current good practices"
+    ),
+    Country_Target_Satisfaction = case_when(
+      Country_Performance_Level == "Needs Improvement" ~ Country_Satisfaction_Rate + 30,
+      Country_Performance_Level == "Average" ~ 75,
+      TRUE ~ Country_Satisfaction_Rate + 5
+    )
+  )
+
+print("Country Recommendations:")
+print(recommendations_country %>% select(Country, Country_Satisfaction_Rate, Country_Performance_Level, Country_Recommended_Action))
+
+# d. Visualize current vs target satisfaction
+plot_satisfaction_targets_country <- ggplot(recommendations_country, aes(x = reorder(Country, Country_Satisfaction_Rate))) +
+  geom_col(aes(y = Country_Satisfaction_Rate, fill = Country_Performance_Level), alpha = 0.7) +
+  geom_point(aes(y = Country_Target_Satisfaction), color = "red", size = 3) +
+  geom_segment(aes(xend = Country, y = Country_Satisfaction_Rate, yend = Country_Target_Satisfaction), 
+               color = "red", linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Current vs Target Satisfaction Rates",
+       subtitle = "Red dots show improvement targets",
+       x = "Country", y = "Satisfaction Rate (%)",
+       fill = "Performance Level") +
+  theme_minimal()
+
+print(plot_satisfaction_targets_country)
+
+# e. Simple action plan summary
+action_summary <- recommendations_country %>%
+  count(Country_Performance_Level, Country_Recommended_Action) %>%
+  rename(Countries_Count = n)
+
+print("Action Plan Summary:")
+print(action_summary)
+
+# f. Priority countries (lowest satisfaction rates)
+priority_countries <- head(recommendations_country, 3)
+
+cat("\nTOP 3 PRIORITY COUNTRIES FOR IMPROVEMENT:\n")
+for(i in 1:3) {
+  cat(paste0(i, ". ", priority_countries$Country[i], 
+             " (", priority_countries$Country_Satisfaction_Rate[i], "% satisfaction)\n"))
+  cat("   Action:", priority_countries$Country_Recommended_Action[i], "\n\n")
+}
