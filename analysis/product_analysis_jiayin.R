@@ -20,7 +20,7 @@ library(dplyr)
 library(car) 
 
 ## a. Subset data for manova analysis
-manova_data <- retail_data_proc |> select(Ratings, Purchase_Quantity, Product_Category) |> mutate(
+manova_data <- retail_data_proc |> dplyr::select(Ratings, Purchase_Quantity, Product_Category) |> mutate(
   ## b. Make ratings numeric
   Ratings_Num = as.numeric(Ratings)
 )
@@ -220,7 +220,7 @@ print(pair_by_rating_top)
 library(ggplot2)
 library(MetBrewer)
 # [BAR PLOT]
-bar_plot <- ggplot(pair_by_rating_top_long, aes(x = pair, y = Count, fill = Rating)) +
+bar_plot <- ggplot(pair_by_rating_top, aes(x = pair, y = Count, fill = Rating)) +
   geom_bar(stat = "identity", position = "dodge", width = 0.7) +
   geom_text(aes(label = Count), 
             position = position_dodge(width = 0.7), 

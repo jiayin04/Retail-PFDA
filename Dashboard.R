@@ -301,13 +301,14 @@ ui <- dashboardPage(
                                         withSpinner(plotlyOutput("age_group_plot"))
                                       )
                                )
-                             )
+                             ),
+                        
                     ),
                     
                     # Age-Based Customer Profiling
                     tabPanel("Customer Profiling",
                              fluidRow(
-                               column(6,
+                               column(12,
                                       box(
                                         title = "Age-Based Clusters",
                                         status = "warning",
@@ -316,7 +317,7 @@ ui <- dashboardPage(
                                         withSpinner(plotlyOutput("age_cluster_plot"))
                                       )
                                ),
-                               column(6,
+                               column(7,
                                       box(
                                         title = "Cluster Summary",
                                         status = "warning",
@@ -371,6 +372,17 @@ ui <- dashboardPage(
                                         withSpinner(plotlyOutput("brand_preference_plot"))
                                       )
                                )
+                             ),
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "Customer Ratings Across Product Segment (Radar Chart)",
+                                        status = "primary",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotlyOutput("product_radar_plot"))
+                                      )
+                               )
                              )
                     ),
                     
@@ -390,11 +402,11 @@ ui <- dashboardPage(
                              fluidRow(
                                column(12,
                                       box(
-                                        title = "Top Co-Purchases",
+                                        title = "Top Co-Purchases (Bar Plot)",
                                         status = "success",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(DT::dataTableOutput("co_purchase_table"))
+                                        withSpinner(plotlyOutput("co_purchase_bar_plot"))
                                       )
                                )
                              )
@@ -419,6 +431,19 @@ ui <- dashboardPage(
                                         solidHeader = TRUE,
                                         width = 12,
                                         withSpinner(DT::dataTableOutput("product_cluster_summary"))
+                                      )
+                               )
+                             )
+                    ),
+                    tabPanel("Random Forest Prediction",
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "Random Forest ROC Curve (Balanced vs Imbalanced)",
+                                        status = "success",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotlyOutput("product_rf_roc_plot"))
                                       )
                                )
                              )
@@ -948,23 +973,21 @@ server <- function(input, output, session) {
   # Age Analysis Outputs
   output$age_amount_plot <- renderPlotly({
     age_data <- data %>%
-      mutate(Ratings_Num = ifelse(Ratings == "High", 1, 0)) %>%
-      pivot_longer(
-        cols = c(Total_Amount, Ratings_Num),
-        names_to = "Measure",
-        values_to = "Value"
+      group_by(Age_Group) %>%
+      summarise(
+        Avg_Amount = mean(Total_Amount),
+        Count = n()
       )
     
-    p <- age_scatter_plot
-      # ggplot(age_data, aes(x = Age, y = Value)) +
-      # geom_point(alpha = 0.3) +
-      # geom_smooth(method = "loess", se = FALSE, color = "blue") +
-      # facet_wrap(~ Measure, scales = "free_y") +
-      # labs(
-      #   title = "Relationship Between Age and Total Amount / Ratings",
-      #   x = "Age",
-      #   y = "Value"
-      # )
+    p <- ggplot(age_data, aes(x = Age_Group, y = Avg_Amount, fill = Age_Group)) +
+      geom_col() +
+      labs(
+        title = "Average Spending by Age Group",
+        x = "Age Group",
+        y = "Average Total Amount"
+      ) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
     
     ggplotly(p)
   })
@@ -991,6 +1014,76 @@ server <- function(input, output, session) {
       )
     
     ggplotly(p)
+  })
+  
+  output$age_cluster_plot <- renderPlotly({
+    # Prepare data for clustering and plotting
+    data_with_ratings <- data %>%
+      mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0))
+    
+    # Prepare matrix for clustering
+    cluster_matrix <- as.matrix(dplyr::select(as.data.frame(data_with_ratings), Age, Ratings_numeric))
+    cluster_matrix <- scale(cluster_matrix)
+    
+    # Perform k-means clustering
+    set.seed(123)
+    kmeans_result <- kmeans(cluster_matrix, centers = 3)
+    
+    # Add cluster labels to the data frame
+    data_with_ratings <- data_with_ratings %>%
+      mutate(Cluster = factor(kmeans_result$cluster))
+    
+    # Calculate centroids
+    centroids <- data_with_ratings %>%
+      group_by(Cluster) %>%
+      summarise(Age = mean(Age), Ratings = mean(Ratings_numeric))
+    
+    p <- ggplot(data_with_ratings, aes(x = Age, y = Ratings_numeric, color = Cluster)) +
+      geom_point(alpha = 0.6, size = 2) +
+      geom_point(data = centroids, aes(x = Age, y = Ratings),
+                 color = "black", shape = 4, size = 4, stroke = 2, inherit.aes = FALSE) +
+      geom_text(data = centroids, aes(x = Age, y = Ratings, label = paste("Cluster", Cluster)),
+                vjust = -1, color = "black", size = 4, inherit.aes = FALSE) +
+      labs(title = "Customer Profiling Based on Age and Ratings",
+           x = "Age",
+           y = "Ratings (High = 1, Low = 0)",
+           color = "Cluster") +
+      theme_minimal() +
+      scale_color_brewer(palette = "Set1")
+    
+    ggplotly(p)
+  })
+  
+  output$age_cluster_summary <- DT::renderDataTable({
+    # Prepare data for clustering and summary
+    data_with_ratings <- data %>%
+      mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0))
+    
+    cluster_matrix <- as.matrix(dplyr::select(as.data.frame(data_with_ratings), Age, Ratings_numeric, Total_Amount))
+    cluster_matrix <- scale(cluster_matrix)
+    
+    # Perform k-means clustering
+    set.seed(123)
+    kmeans_result <- kmeans(cluster_matrix, centers = 3)
+    
+    # Add cluster labels to a new data frame
+    data_with_ratings <- data_with_ratings %>%
+      mutate(Cluster = factor(kmeans_result$cluster))
+    
+    # Create cluster summary
+    cluster_summary <- data_with_ratings %>%
+      group_by(Cluster) %>%
+      summarise(
+        Avg_Age = mean(Age),
+        Avg_Amount = mean(Total_Amount),
+        Avg_Rating = mean(Ratings_numeric),
+        Count = n(),
+        .groups = "drop"
+      )
+    
+    DT::datatable(cluster_summary,
+                  options = list(pageLength = 5, dom = 't'),
+                  caption = "Age-Based Cluster Summary")
   })
   
   # Product Analysis Outputs
@@ -1027,6 +1120,30 @@ server <- function(input, output, session) {
     
     ggplotly(p)
   })
+
+  output$product_radar_plot <- renderPlotly({
+
+    ratings_summary_cat <- create_summary(data, "Product_Category")
+    ratings_summary_brand <- create_summary(data, "Product_Brand")
+
+    # [Polar Chart]
+    # Category
+    cat_radar <- theme_setting(plot_polar_chart(ratings_summary_cat, "Product_Category"), "Product Category")
+    # Brand
+    brand_radar <- theme_setting(plot_polar_chart(ratings_summary_brand, "Product_Brand"), "Product Brand")
+
+    # final plot
+    combined_radar_plot <- (cat_radar | brand_radar) + # Use patchwork for combining
+      plot_annotation(
+        title = "Distribution of Customer Ratings Across Product Segment",
+        subtitle = "Visual comparison of rating count, total purchase, and average customer age by category and brand",
+        caption = "Source: Retail Dataset | Units scaled for readability",
+        theme = theme(plot.title = element_text(face = "bold", size = 16, hjust = 0.5), # Center title
+                      plot.subtitle = element_text(size = 11, hjust = 0.5)) # Center subtitle
+      )
+
+    ggplotly(combined_radar_plot) # Wrap in ggplotly
+  })
   
   output$co_purchase_heatmap <- renderPlotly({
     # Create product pairs based on Product_Category per customer and rating
@@ -1037,27 +1154,61 @@ server <- function(input, output, session) {
       mutate(Pairs = map(Categories, ~combn(.x, 2, simplify = FALSE))) %>%
       unnest(Pairs) %>%
       mutate(pair = map_chr(Pairs, ~paste(sort(.x), collapse = " & ")))
-    
+
     # Count co-purchases by rating
     pair_by_rating <- product_pairs %>%
       group_by(Ratings, pair) %>%
       count(name = "n", sort = TRUE) %>%
       ungroup()
-    
-    p <- ggplot(pair_by_rating, aes(x = pair, y = n, fill = Ratings)) +
-      geom_col(position = "dodge") +
-      coord_flip() +
+
+    # Pivot to wide format to select top pairs by total count
+    pair_by_rating_wide <- pair_by_rating %>%
+      pivot_wider(names_from = Ratings, values_from = n, values_fill = 0)
+
+    # Select top 15 pairs by total count (High + Low)
+    pair_by_rating_top <- pair_by_rating_wide %>%
+      mutate(Total = rowSums(across(where(is.numeric)))) %>%
+      arrange(desc(Total)) %>%
+      slice_head(n = 15)
+
+    # Prepare symmetric heatmap input
+    pair_matrix <- pair_by_rating_top %>%
+      separate(pair, into = c("Product1", "Product2"), sep = " & ") %>%
+      pivot_longer(cols = c(High, Low), names_to = "Rating", values_to = "Count")
+
+    # Create the heatmap plot
+    heatmap_plot <- ggplot(pair_matrix, aes(x = Product1, y = Product2, fill = Count)) +
+      geom_tile(color = "white", linewidth = 0.4) +
+      facet_wrap(~Rating) +
+      scale_fill_met_c(name = "Monet") + # Using MetBrewer Monet palette
       labs(
-        title = "Co-Purchase Patterns by Rating",
-        x = "Product Category Pair",
-        y = "Count"
+        title = "Heatmap of Co-Purchase Counts by Product Category",
+        subtitle = "Top 15 pairs shown, separated by customer rating group",
+        x = "Product A",
+        y = "Product B",
+        fill = "Co-Purchase Count"
+      ) +
+      guides(fill = guide_colorbar(
+        title.position = "top",
+        title.hjust = 0.5,
+        barwidth = 10,
+        barheight = 0.6
+      )) +
+      theme_minimal(base_size = 13) +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+        axis.text.y = element_text(size = 10),
+        plot.title = element_text(face = "bold", hjust = 0.5, size = 15),
+        plot.subtitle = element_text(hjust = 0.5, size = 12),
+        strip.text = element_text(face = "bold", size = 13),
+        legend.position = "bottom"
       )
-    
-    ggplotly(p)
+
+    ggplotly(heatmap_plot)
   })
-  
-  output$co_purchase_table <- DT::renderDataTable({
-    # Create product pairs and count co-purchases
+
+  output$co_purchase_bar_plot <- renderPlotly({
+     # Create product pairs based on Product_Category per customer and rating
     product_pairs <- data %>%
       group_by(Customer_ID, Ratings) %>%
       summarise(Categories = list(unique(Product_Category)), .groups = "drop") %>%
@@ -1065,128 +1216,215 @@ server <- function(input, output, session) {
       mutate(Pairs = map(Categories, ~combn(.x, 2, simplify = FALSE))) %>%
       unnest(Pairs) %>%
       mutate(pair = map_chr(Pairs, ~paste(sort(.x), collapse = " & ")))
-    
+
+    # Count co-purchases by rating
     pair_by_rating <- product_pairs %>%
       group_by(Ratings, pair) %>%
       count(name = "n", sort = TRUE) %>%
-      ungroup() %>%
-      pivot_wider(names_from = Ratings, values_from = n, values_fill = 0) %>%
-      mutate(Total = High + Low) %>%
-      arrange(desc(Total))
-    
-    DT::datatable(pair_by_rating,
-                  options = list(pageLength = 10, scrollX = TRUE),
-                  caption = "Top Co-Purchased Product Categories")
-  })
-  
-  # Age-based clustering
-  output$age_cluster_plot <- renderPlotly({
-    # Prepare data for clustering
-    cluster_data <- data %>%
-      select(Age, Ratings_numeric, Total_Amount) %>%
-      scale()
-    
-    # Perform k-means clustering
-    set.seed(123)
-    kmeans_result <- kmeans(cluster_data, centers = 3)
-    
-    # Add cluster labels to original data
-    data$Cluster <- factor(kmeans_result$cluster)
-    
-    p <- ggplot(data, aes(x = Age, y = Total_Amount, color = Cluster)) +
-      geom_point(alpha = 0.6) +
+      ungroup()
+
+     # Pivot to wide format to select top pairs by total count
+    pair_by_rating_wide <- pair_by_rating %>%
+      pivot_wider(names_from = Ratings, values_from = n, values_fill = 0)
+
+    # Select top 15 pairs by total count (High + Low)
+    pair_by_rating_top <- pair_by_rating_wide %>%
+      mutate(Total = rowSums(across(where(is.numeric)))) %>%
+      arrange(desc(Total)) %>%
+      slice_head(n = 15)
+
+    # Pivot to long format for bar plot
+    pair_by_rating_top_long <- pair_by_rating_top %>%
+      pivot_longer(cols = c(High, Low), names_to = "Rating", values_to = "Count")
+
+    # Create the bar plot
+    bar_plot <- ggplot(pair_by_rating_top_long, aes(x = reorder(pair, Count), y = Count, fill = Rating)) + # Reorder by Count
+      geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+      geom_text(aes(label = Count), 
+                position = position_dodge(width = 0.7), 
+                hjust = -0.1, 
+                size = 3.3, 
+                color = "black") +
+      coord_flip() +
+      scale_fill_met_d(name = "Hokusai3") + # Using MetBrewer Hokusai3 palette
       labs(
-        title = "Age-Based Customer Clusters",
-        x = "Age",
-        y = "Total Amount Spent"
-      )
-    
-    ggplotly(p)
+        title = "Top Co-Purchased Product Category Pairs by Rating",
+        subtitle = "Comparison of frequent co-purchases between High and Low rating customers",
+        x = "Product Category Pair",
+        y = "Co-Purchase Count"
+      ) +
+      theme_minimal(base_size = 14) +
+      theme(
+        plot.title = element_text(face = "bold", hjust = 0.5, size = 16),
+        plot.subtitle = element_text(hjust = 0.5, size = 13),
+        axis.text.x = element_text(color = "grey20", size = 11),
+        axis.text.y = element_text(color = "grey20", size = 10),
+        legend.position = "bottom"
+      ) +
+      expand_limits(y = max(pair_by_rating_top_long$Count, na.rm = TRUE) * 1.2) # Adjust expand_limits
+
+    ggplotly(bar_plot)
   })
-  
-  output$age_cluster_summary <- DT::renderDataTable({
-    # Prepare data for clustering
-    cluster_data <- data %>%
-      select(Age, Ratings_numeric, Total_Amount) %>%
-      scale()
-    
-    # Perform k-means clustering
-    set.seed(123)
-    kmeans_result <- kmeans(cluster_data, centers = 3)
-    
-    # Add cluster labels to original data
-    data$Cluster <- factor(kmeans_result$cluster)
-    
-    # Create cluster summary
-    cluster_summary <- data %>%
-      group_by(Cluster) %>%
-      summarise(
-        Avg_Age = mean(Age),
-        Avg_Amount = mean(Total_Amount),
-        Avg_Rating = mean(Ratings_numeric),
-        Count = n(),
-        .groups = "drop"
-      )
-    
-    DT::datatable(cluster_summary,
-                  options = list(pageLength = 5, dom = 't'),
-                  caption = "Age-Based Cluster Summary")
-  })
-  
+
   # Product-based clustering
   output$product_cluster_plot <- renderPlotly({
-    # Prepare data for clustering
-    cluster_data <- data %>%
-      select(Purchase_Quantity, Ratings_numeric, Total_Amount) %>%
+    # Prepare data for clustering and plotting
+    data_for_clustering <- data %>%
+      mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0)) %>%
+      select(Ratings, Product_Brand, Purchase_Quantity, Product_Category) # Select only relevant columns for clustering/plotting
+
+    # Convert factors to numeric for clustering
+    data_for_clustering$Product_Brand_num <- as.numeric(data_for_clustering$Product_Brand)
+    data_for_clustering$Product_Category_num <- as.numeric(data_for_clustering$Product_Category)
+    # Ratings_numeric is not used for clustering input, but needed for potential future cluster analysis/summary
+
+    # Remove rows with NAs introduced by factor conversion or existing NAs
+    data_for_clustering <- na.omit(data_for_clustering)
+
+    # Select only the numeric variables for scaling and clustering (3 variables as in product_analysis_jiayin.R)
+    data_scaled <- data_for_clustering %>%
+      select(Product_Brand_num, Product_Category_num, Purchase_Quantity) %>% # Use the 3 variables
       scale()
-    
-    # Perform k-means clustering
+
+    # Perform k-means clustering (using scaled data)
     set.seed(123)
-    kmeans_result <- kmeans(cluster_data, centers = 3)
-    
-    # Add cluster labels to original data
-    data$Product_Cluster <- factor(kmeans_result$cluster)
-    
-    p <- ggplot(data, aes(x = Purchase_Quantity, y = Total_Amount, color = Product_Cluster)) +
-      geom_point(alpha = 0.6) +
-      labs(
-        title = "Product-Based Customer Clusters",
-        x = "Purchase Quantity",
-        y = "Total Amount Spent"
+    # Check if there are enough rows for clustering after na.omit
+    if (nrow(data_scaled) < 3) {
+      # Handle case where there are not enough data points for clustering
+      return(plotly() %>% layout(title = "Not enough data to perform clustering"))
+    }
+    kmeans_result <- kmeans(data_scaled, centers = 3)
+
+    # Add cluster labels back to the original-like data frame
+    data_for_clustering$cluster <- factor(kmeans_result$cluster)
+
+    # Perform PCA for Dimensional Reduction (using the same 3 scaled variables)
+    pca_result <- prcomp(data_scaled)
+    pca_data <- data.frame(pca_result$x)
+
+    # Ensure row names match for joining/plotting by index later
+    rownames(pca_data) <- rownames(data_for_clustering)
+
+    # Create the 3D plot using pca_data for coordinates and data_for_clustering for color/symbol
+    plotly_3d <- plot_ly(
+      x = pca_data$PC1, y = pca_data$PC2, z = pca_data$PC3,
+      type = "scatter3d",
+      mode = "markers",
+      color = data_for_clustering$cluster, # Use cluster from the data_for_clustering
+      symbol = data_for_clustering$Product_Category, # Use Product_Category from the data_for_clustering
+      colors = c("#F1C40F", "#E74C3C", "#2ECC71"),
+      marker = list(opacity = 0.8)
+    ) %>%
+      layout(
+        title = list(
+          text = "3D PCA Plot of Customer Clusters<br><sub>Based on Product Attributes and Purchase Quantity</sub>", # Updated title
+          x = 0.05
+        ),
+        legend = list(
+          title = list(text = 'Cluster')
+        ),
+        scene = list(
+          xaxis = list(title = 'PC1'),
+          yaxis = list(title = 'PC2'),
+          zaxis = list(title = 'PC3')
+        ),
+        margin = list(l = 0, r = 0, b = 0, t = 40)
       )
-    
-    ggplotly(p)
+
+    plotly_3d
   })
-  
+
   output$product_cluster_summary <- DT::renderDataTable({
-    # Prepare data for clustering
-    cluster_data <- data %>%
-      select(Purchase_Quantity, Ratings_numeric, Total_Amount) %>%
+    # Prepare data for clustering and summary
+    data_for_summary <- data %>%
+      mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0)) %>%
+      select(Ratings, Product_Brand, Purchase_Quantity, Product_Category, Ratings_numeric)
+
+    # Convert factors to numeric for clustering
+    data_for_summary$Product_Brand_num <- as.numeric(data_for_summary$Product_Brand)
+    data_for_summary$Product_Category_num <- as.numeric(data_for_summary$Product_Category)
+
+    # Remove rows with NAs introduced by factor conversion or existing NAs
+    data_for_summary <- na.omit(data_for_summary)
+
+    # Select only the numeric variables for scaling and clustering (3 variables + Ratings_numeric for summary)
+    data_scaled <- data_for_summary %>%
+      select(Product_Brand_num, Product_Category_num, Purchase_Quantity) %>% # Use the 3 variables for scaling
       scale()
-    
+
     # Perform k-means clustering
     set.seed(123)
-    kmeans_result <- kmeans(cluster_data, centers = 3)
-    
-    # Add cluster labels to original data
-    data$Product_Cluster <- factor(kmeans_result$cluster)
-    
+    # Check if there are enough rows for clustering after na.omit
+    if (nrow(data_scaled) < 3) {
+       return(DT::datatable(data.frame("Summary" = "Not enough data to perform clustering")))
+    }
+    kmeans_result <- kmeans(data_scaled, centers = 3)
+
+    # Add cluster labels to original data frame for summary
+    data_for_summary$cluster <- factor(kmeans_result$cluster)
+
     # Create cluster summary
-    cluster_summary <- data %>%
-      group_by(Product_Cluster) %>%
+    cluster_summary <- data_for_summary %>% # Use data_for_summary with cluster labels
+      group_by(cluster) %>%
       summarise(
-        Avg_Purchase = mean(Purchase_Quantity),
-        Avg_Amount = mean(Total_Amount),
-        Avg_Rating = mean(Ratings_numeric),
+        Avg_Purchase = mean(Purchase_Quantity, na.rm = TRUE),
+        Avg_Rating = mean(Ratings_numeric, na.rm = TRUE),
+        # Find the most common brand within each cluster
+        Most_Common_Brand = names(sort(table(Product_Brand), decreasing = TRUE))[1],
         Count = n(),
         .groups = "drop"
       )
-    
+
     DT::datatable(cluster_summary,
                   options = list(pageLength = 5, dom = 't', autoWidth = TRUE),
                   class = 'cell-border stripe hover nowrap',
                   caption = "Product-Based Cluster Summary")
   })
+  
+  output$product_rf_roc_plot <- renderPlotly({
+    # Prepare model data
+    model_data <- data %>%
+      mutate(Total_Purchase = Amount * Purchase_Quantity) %>%
+      select(Ratings, Customer_ID, Product_Brand, Product_Category, Purchase_Quantity, Amount, Total_Purchase)
+
+    # Imbalanced
+    imbalanced_results <- train_and_evaluate(model_data)
+
+    # Balanced
+    set.seed(123)
+    balanced_data <- downSample(x = model_data[, -1], y = model_data$Ratings, yname = "Ratings")
+    balanced_results <- train_and_evaluate(balanced_data)
+
+    # Prepare ROC data for plotly
+    imbalanced_roc <- imbalanced_results$rf$roc
+    balanced_roc <- balanced_results$rf$roc
+
+    roc_df <- data.frame(
+      FPR = c(1 - imbalanced_roc$specificities, 1 - balanced_roc$specificities),
+      TPR = c(imbalanced_roc$sensitivities, balanced_roc$sensitivities),
+      Type = rep(c("Imbalanced", "Balanced"),
+                 c(length(imbalanced_roc$specificities), length(balanced_roc$specificities)))
+    )
+
+    auc_imb <- round(auc(imbalanced_roc), 4)
+    auc_bal <- round(auc(balanced_roc), 4)
+
+    p <- ggplot(roc_df, aes(x = FPR, y = TPR, color = Type)) +
+      geom_line(size = 1.2) +
+      geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+      scale_color_manual(values = met.brewer("Cassatt1", 2)) + # Using MetBrewer Cassatt1 palette
+      labs(
+        title = "Random Forest ROC Curve (Balanced vs Imbalanced)",
+        subtitle = paste("AUC Imbalanced =", auc_imb, "| AUC Balanced =", auc_bal),
+        x = "False Positive Rate (1 - Specificity)",
+        y = "True Positive Rate (Sensitivity)",
+        color = "Data Type"
+      ) +
+      theme_minimal()
+
+    ggplotly(p)
+  })
+
 }
 
 # Run the application
