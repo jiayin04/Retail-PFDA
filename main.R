@@ -10,8 +10,8 @@ source("utils/libraries.R")
 ### ─────────────────────────────────────────────
 ### 2. Source Utility Scripts
 ### ─────────────────────────────────────────────
-source("utils/helper_functions.R")
 source("preprocessing/data_cleaning.R")
+source("utils/helper_functions.R")
 
 
 ### ─────────────────────────────────────────────
@@ -39,7 +39,6 @@ str(retail_data_proc)
 summary(retail_data_proc)
 View(retail_data_proc)
 colSums(is.na(retail_data_proc))
-
 
 ### ─────────────────────────────────────────────
 ### 5. Individual Analyses

@@ -21,7 +21,7 @@ library(purrr)
 
 # Define UI
 ui <- dashboardPage(
-  dashboardHeader(title = "Customer Analytics Dashboard"),
+  dashboardHeader(title = "Retail Data Analytics Dashboard"),
   
   dashboardSidebar(
     sidebarMenu(
@@ -34,7 +34,7 @@ ui <- dashboardPage(
       menuItem("Product Analysis", 
                tabName = "product_analysis", 
                icon = icon("shopping-cart")),
-      menuItem("Teammate Analysis 3", 
+      menuItem("Transaction Logistics Analysis", 
                tabName = "analysis3", 
                icon = icon("chart-pie"))
     )
@@ -302,7 +302,7 @@ ui <- dashboardPage(
                                       )
                                )
                              ),
-                        
+                             
                     ),
                     
                     # Age-Based Customer Profiling
@@ -341,7 +341,7 @@ ui <- dashboardPage(
                   status = "primary", 
                   solidHeader = TRUE,
                   width = 12,
-                  p("This analysis examines product preferences, co-purchasing behavior, and brand preferences.")
+                  p("This analysis examines product preferences, co-purchasing behavior, brand preferences and customer profiling.")
                 )
               ),
               
@@ -352,73 +352,167 @@ ui <- dashboardPage(
                     id = "product_tabs",
                     
                     # Product Preference Analysis
-                    tabPanel("Product Preferences",
+                    tabPanel("Diagnostic Analysis",
                              fluidRow(
-                               column(6,
+                               column(12,
                                       box(
-                                        title = "Product Category Analysis",
+                                        title = "Pairwise Comparison Plot (Histogram) ",
+                                        status = "success",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("product_category_plot"))
+                                      )
+                               ),
+                             ),
+                             fluidRow(
+                               column(8,
+                                        box(
+                                          title = "Centroid Means Plot with Error Bars",
+                                                     status = "success",
+                                                     solidHeader = TRUE,
+                                                     width = 12,
+                                                     withSpinner(plotOutput("centroid_mean_plot"))
+                                        )
+                                      ),
+                               column(4,
+                                      box(
+                                        title = "Standard Error Formula",
                                         status = "info",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(plotlyOutput("product_category_plot"))
+                                        withMathJax(
+                                          p("The standard error of the centroid mean is calculated as:"),
+                                          p("$$SE = \\frac{Standard Deviation (SD)}{\\sqrt{Sample Size(n)}}$$")
+                                        )
+                                      )
+                                      ),
+                             )
+                            
+                    ),
+                    
+                    # Co-Purchasing Analysis
+                    tabPanel("Descriptive and Exploratory Data Analysis",
+                             fluidRow(
+                               column(6,
+                                      box(
+                                        title = "Distribution of Customer Ratings Across Product Segment (Polar Chart)",
+                                        status = "success",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("product_radar_plot"))
                                       )
                                ),
                                column(6,
                                       box(
-                                        title = "Brand Preference Analysis",
-                                        status = "info",
+                                        title = "Top 15 Product Pairs by Customer Ratings",
+                                        status = "success",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(plotlyOutput("brand_preference_plot"))
-                                      )
-                               )
+                                        withSpinner(DTOutput("top_pairs_table"))
+                                      ))
                              ),
-                             fluidRow(
-                               column(12,
-                                      box(
-                                        title = "Customer Ratings Across Product Segment (Radar Chart)",
-                                        status = "primary",
-                                        solidHeader = TRUE,
-                                        width = 12,
-                                        withSpinner(plotlyOutput("product_radar_plot"))
-                                      )
-                               )
-                             )
-                    ),
-                    
-                    # Co-Purchasing Analysis
-                    tabPanel("Co-Purchasing",
                              fluidRow(
                                column(12,
                                       box(
                                         title = "Co-Purchase Heatmap",
-                                        status = "success",
+                                        status = "warning",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(plotlyOutput("co_purchase_heatmap"))
+                                        withSpinner(plotOutput("co_purchase_heatmap"))
                                       )
                                )
                              ),
+                    ),
+                    tabPanel("Predictive Analysis",
                              fluidRow(
-                               column(12,
+                               column(8,
                                       box(
-                                        title = "Top Co-Purchases (Bar Plot)",
+                                        title = "Model Evaluation Metrics (Confusion Matrix Summary)",
+                                        status = "primary",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(dataTableOutput("model_metrics"))
+                                      )
+                               ),
+                               column(4,
+                                      box(
+                                        title = "Ratings Distribution in Training Set",
+                                        status = "info",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(tableOutput("ratings_distribution_table"))
+                                      )
+                               ),
+                             ),
+                             
+                             fluidRow(
+                               column(6,
+                                      box(
+                                        title = "Random Forest ROC Curve (Balanced vs Imbalanced)",
                                         status = "success",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(plotlyOutput("co_purchase_bar_plot"))
+                                        withSpinner(plotOutput("rf_roc_plot"))
+                                      )
+                               ),
+                               column(6,
+                                      box(
+                                        title = "XGBoost ROC Curve (Balanced vs Imbalanced)",
+                                        status = "success",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("xgb_roc_plot"))
                                       )
                                )
-                             )
+                             ),
+                             
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "Feature Importance",
+                                        status = "success",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("product_feature_importance"))
+                                        )
+                                      )
+                             ),
                     ),
-                    
                     # Product-Based Clustering
-                    tabPanel("Customer Clustering",
+                    tabPanel("Clustering Analysis",
                              fluidRow(
                                column(5,
                                       box(
-                                        title = "Product-Based Clusters",
-                                        status = "warning",
+                                        title = "Avg Silhouette Score",
+                                        status = "info",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(verbatimTextOutput("avg_sil_score"))
+                                        ),
+                                      
+                                      box(
+                                        title = "Product-Based Cluster Summary",
+                                        status = "info",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(tableOutput("product_cluster_summary"))
+                                      )
+                                      ),
+                               column(7,
+                                      box(
+                                        title = "Elbow Method for Optimal K",
+                                        status = "primary",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput(("product_elbow_method")))
+                                        )
+                                      )
+                             ),
+                             fluidRow(
+                               column(5,
+                                      box(
+                                        title = "3D PCA Product-Based Clusters",
+                                        status = "success",
                                         solidHeader = TRUE,
                                         width = 12,
                                         withSpinner(plotlyOutput("product_cluster_plot"))
@@ -430,26 +524,15 @@ ui <- dashboardPage(
                                         status = "warning",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(DT::dataTableOutput("product_cluster_summary"))
+                                        withSpinner(plotOutput(("dendrogram_plot"))
                                       )
                                )
                              )
                     ),
-                    tabPanel("Random Forest Prediction",
-                             fluidRow(
-                               column(12,
-                                      box(
-                                        title = "Random Forest ROC Curve (Balanced vs Imbalanced)",
-                                        status = "success",
-                                        solidHeader = TRUE,
-                                        width = 12,
-                                        withSpinner(plotlyOutput("product_rf_roc_plot"))
-                                      )
-                               )
-                             )
-                    )
+                    
                   )
                 )
+              )
               )
       ),
       
@@ -517,8 +600,10 @@ ui <- dashboardPage(
   )
 )
 
+
 # Define Server
 server <- function(input, output, session) {
+
   
   # Load and prepare data
   data <- retail_data_proc
@@ -530,10 +615,12 @@ server <- function(input, output, session) {
   data <- data %>% 
     mutate(
       Age_Group = cut(Age,
-                     breaks = c(0, 25, 35, 45, 60, 100),
-                     labels = c("Under 25", "25–34", "35–44", "45–59", "60+")),
+                      breaks = c(0, 25, 35, 45, 60, 100),
+                      labels = c("Under 25", "25–34", "35–44", "45–59", "60+")),
       Total_Amount = Amount * Purchase_Quantity
     )
+  
+  ################# Country ################
   
   # Create contingency table for statistical tests
   table_ratings <- table(data$Country, data$Ratings)
@@ -814,8 +901,8 @@ server <- function(input, output, session) {
       country_test <- data.frame(Country = factor(country, levels = levels(balanced_data_country$Country)))
       pred <- predict(rf_country_ratings_model, country_test, type = "prob")
       country_pred <- rbind(country_pred, 
-                           data.frame(Country = country, 
-                                    High_Rating_Probability = pred[, "High"]))
+                            data.frame(Country = country, 
+                                       High_Rating_Probability = pred[, "High"]))
     }
     
     p <- ggplot(country_pred, aes(x = reorder(Country, High_Rating_Probability),
@@ -970,6 +1057,8 @@ server <- function(input, output, session) {
                       color = "#721c24")
   })
   
+  ################# Age ################
+  
   # Age Analysis Outputs
   output$age_amount_plot <- renderPlotly({
     age_data <- data %>%
@@ -1086,345 +1175,135 @@ server <- function(input, output, session) {
                   caption = "Age-Based Cluster Summary")
   })
   
-  # Product Analysis Outputs
-  output$product_category_plot <- renderPlotly({
-    p <- ggplot(data, aes(x = Product_Category, y = Purchase_Quantity, fill = Ratings)) +
-      geom_violin(trim = FALSE, alpha = 0.5) +
-      geom_boxplot(width = 0.1, position = position_dodge(width = 0.9),
-                  outlier.shape = NA, color = "black", alpha = 0.8) +
-      labs(
-        title = "Purchase Quantity Across Product Categories by Customer Ratings",
-        x = "Product Category",
-        y = "Purchase Quantity"
-      )
-    
-    ggplotly(p)
+
+  ################PRODUCT########################  
+  
+  ##### Product Analysis Outputs ####
+  # Product Category Histogram
+  output$product_category_plot <- renderPlot({
+    final_hist_plot
   })
   
-  output$brand_preference_plot <- renderPlotly({
-    brand_summary <- data %>%
-      group_by(Product_Brand, Ratings) %>%
-      summarise(
-        Avg_Purchase = mean(Purchase_Quantity),
-        Count = n(),
-        .groups = "drop"
-      )
-    
-    p <- ggplot(brand_summary, aes(x = Product_Brand, y = Avg_Purchase, fill = Ratings)) +
-      geom_col(position = "dodge") +
-      labs(
-        title = "Brand Preferences by Ratings",
-        x = "Product Brand",
-        y = "Average Purchase Quantity"
-      )
-    
-    ggplotly(p)
-  })
-
-  output$product_radar_plot <- renderPlotly({
-
-    ratings_summary_cat <- create_summary(data, "Product_Category")
-    ratings_summary_brand <- create_summary(data, "Product_Brand")
-
-    # [Polar Chart]
-    # Category
-    cat_radar <- theme_setting(plot_polar_chart(ratings_summary_cat, "Product_Category"), "Product Category")
-    # Brand
-    brand_radar <- theme_setting(plot_polar_chart(ratings_summary_brand, "Product_Brand"), "Product Brand")
-
-    # final plot
-    combined_radar_plot <- (cat_radar | brand_radar) + # Use patchwork for combining
-      plot_annotation(
-        title = "Distribution of Customer Ratings Across Product Segment",
-        subtitle = "Visual comparison of rating count, total purchase, and average customer age by category and brand",
-        caption = "Source: Retail Dataset | Units scaled for readability",
-        theme = theme(plot.title = element_text(face = "bold", size = 16, hjust = 0.5), # Center title
-                      plot.subtitle = element_text(size = 11, hjust = 0.5)) # Center subtitle
-      )
-
-    ggplotly(combined_radar_plot) # Wrap in ggplotly
+  # Centroid Mean Plot
+  output$centroid_mean_plot <- renderPlot({
+    cm_plot
   })
   
-  output$co_purchase_heatmap <- renderPlotly({
-    # Create product pairs based on Product_Category per customer and rating
-    product_pairs <- data %>%
-      group_by(Customer_ID, Ratings) %>%
-      summarise(Categories = list(unique(Product_Category)), .groups = "drop") %>%
-      filter(lengths(Categories) > 1) %>%
-      mutate(Pairs = map(Categories, ~combn(.x, 2, simplify = FALSE))) %>%
-      unnest(Pairs) %>%
-      mutate(pair = map_chr(Pairs, ~paste(sort(.x), collapse = " & ")))
-
-    # Count co-purchases by rating
-    pair_by_rating <- product_pairs %>%
-      group_by(Ratings, pair) %>%
-      count(name = "n", sort = TRUE) %>%
-      ungroup()
-
-    # Pivot to wide format to select top pairs by total count
-    pair_by_rating_wide <- pair_by_rating %>%
-      pivot_wider(names_from = Ratings, values_from = n, values_fill = 0)
-
-    # Select top 15 pairs by total count (High + Low)
-    pair_by_rating_top <- pair_by_rating_wide %>%
-      mutate(Total = rowSums(across(where(is.numeric)))) %>%
-      arrange(desc(Total)) %>%
-      slice_head(n = 15)
-
-    # Prepare symmetric heatmap input
-    pair_matrix <- pair_by_rating_top %>%
-      separate(pair, into = c("Product1", "Product2"), sep = " & ") %>%
-      pivot_longer(cols = c(High, Low), names_to = "Rating", values_to = "Count")
-
-    # Create the heatmap plot
-    heatmap_plot <- ggplot(pair_matrix, aes(x = Product1, y = Product2, fill = Count)) +
-      geom_tile(color = "white", linewidth = 0.4) +
-      facet_wrap(~Rating) +
-      scale_fill_met_c(name = "Monet") + # Using MetBrewer Monet palette
-      labs(
-        title = "Heatmap of Co-Purchase Counts by Product Category",
-        subtitle = "Top 15 pairs shown, separated by customer rating group",
-        x = "Product A",
-        y = "Product B",
-        fill = "Co-Purchase Count"
-      ) +
-      guides(fill = guide_colorbar(
-        title.position = "top",
-        title.hjust = 0.5,
-        barwidth = 10,
-        barheight = 0.6
-      )) +
-      theme_minimal(base_size = 13) +
-      theme(
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-        axis.text.y = element_text(size = 10),
-        plot.title = element_text(face = "bold", hjust = 0.5, size = 15),
-        plot.subtitle = element_text(hjust = 0.5, size = 12),
-        strip.text = element_text(face = "bold", size = 13),
-        legend.position = "bottom"
+  # Radar Plot/ Polar Chart
+  output$product_radar_plot <- renderPlot({
+    combined_radar_plot
+  })
+  
+  # Top Pairs Table
+  output$top_pairs_table <- DT::renderDataTable({
+    pair_by_rating_top
+  }, options = list(pageLength = 8, scrollX = TRUE))
+  
+  # Heatmap
+  output$co_purchase_heatmap <- renderPlot({
+    heatmap_plot
+  })
+  
+  # Confusion matrix for balanced and imbalanced dataset
+  output$model_metrics <- renderDataTable({
+    make_metric_row <- function(cm, model_name) {
+      data.frame(
+        Model = model_name,
+        Accuracy = round(cm$overall["Accuracy"], 3),
+        Kappa = round(cm$overall["Kappa"], 3),
+        Sensitivity = round(cm$byClass["Sensitivity"], 3),
+        Specificity = round(cm$byClass["Specificity"], 3)
       )
-
-    ggplotly(heatmap_plot)
+    }
+    
+    df <- do.call(rbind, list(
+      make_metric_row(imbalanced_results$rf$confusion_matrix, "RF - Imbalanced"),
+      make_metric_row(balanced_results$rf$confusion_matrix, "RF - Balanced"),
+      make_metric_row(imbalanced_results$xgb$confusion_matrix, "XGB - Imbalanced"),
+      make_metric_row(balanced_results$xgb$confusion_matrix, "XGB - Balanced")
+    ))
+    
+    datatable(df, rownames = FALSE)
   })
-
-  output$co_purchase_bar_plot <- renderPlotly({
-     # Create product pairs based on Product_Category per customer and rating
-    product_pairs <- data %>%
-      group_by(Customer_ID, Ratings) %>%
-      summarise(Categories = list(unique(Product_Category)), .groups = "drop") %>%
-      filter(lengths(Categories) > 1) %>%
-      mutate(Pairs = map(Categories, ~combn(.x, 2, simplify = FALSE))) %>%
-      unnest(Pairs) %>%
-      mutate(pair = map_chr(Pairs, ~paste(sort(.x), collapse = " & ")))
-
-    # Count co-purchases by rating
-    pair_by_rating <- product_pairs %>%
-      group_by(Ratings, pair) %>%
-      count(name = "n", sort = TRUE) %>%
-      ungroup()
-
-     # Pivot to wide format to select top pairs by total count
-    pair_by_rating_wide <- pair_by_rating %>%
-      pivot_wider(names_from = Ratings, values_from = n, values_fill = 0)
-
-    # Select top 15 pairs by total count (High + Low)
-    pair_by_rating_top <- pair_by_rating_wide %>%
-      mutate(Total = rowSums(across(where(is.numeric)))) %>%
-      arrange(desc(Total)) %>%
-      slice_head(n = 15)
-
-    # Pivot to long format for bar plot
-    pair_by_rating_top_long <- pair_by_rating_top %>%
-      pivot_longer(cols = c(High, Low), names_to = "Rating", values_to = "Count")
-
-    # Create the bar plot
-    bar_plot <- ggplot(pair_by_rating_top_long, aes(x = reorder(pair, Count), y = Count, fill = Rating)) + # Reorder by Count
-      geom_bar(stat = "identity", position = "dodge", width = 0.7) +
-      geom_text(aes(label = Count), 
-                position = position_dodge(width = 0.7), 
-                hjust = -0.1, 
-                size = 3.3, 
-                color = "black") +
-      coord_flip() +
-      scale_fill_met_d(name = "Hokusai3") + # Using MetBrewer Hokusai3 palette
-      labs(
-        title = "Top Co-Purchased Product Category Pairs by Rating",
-        subtitle = "Comparison of frequent co-purchases between High and Low rating customers",
-        x = "Product Category Pair",
-        y = "Co-Purchase Count"
-      ) +
-      theme_minimal(base_size = 14) +
-      theme(
-        plot.title = element_text(face = "bold", hjust = 0.5, size = 16),
-        plot.subtitle = element_text(hjust = 0.5, size = 13),
-        axis.text.x = element_text(color = "grey20", size = 11),
-        axis.text.y = element_text(color = "grey20", size = 10),
-        legend.position = "bottom"
-      ) +
-      expand_limits(y = max(pair_by_rating_top_long$Count, na.rm = TRUE) * 1.2) # Adjust expand_limits
-
-    ggplotly(bar_plot)
+  
+  # Ratings Distribution [Balanced Vs Imbalanced]
+  output$ratings_distribution_table <- renderTable({
+    im <- imbalanced_results$train_distribution
+    bl <- balanced_results$train_distribution
+    
+    combined <- rbind(
+      data.frame(Rating = names(im), Count = as.numeric(im), Type = "Imbalanced"),
+      data.frame(Rating = names(bl), Count = as.numeric(bl), Type = "Balanced")
+    )
+    
+    combined
   })
-
+  
+  # ROC Plot
+  output$rf_roc_plot <- renderPlot({
+    plot(imbalanced_results$rf$roc, col = "blue",
+         main = "Random Forest ROC Curve (Balanced vs Imbalanced)")
+    lines(balanced_results$rf$roc, col = "red", lty = 2, lwd = 2)
+    text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$rf$roc), 4)), col="black")
+    text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$rf$roc), 4)), col="black")
+    legend("bottomright",
+           legend = c("RF Imbalanced", "RF Balanced"),
+           col = c("blue", "red"),
+           lty = c(1, 2),
+           lwd = 2)
+    
+  })
+  
+  output$product_feature_importance <- renderPlot({
+    combined_imp_plot
+  })
+  
+  output$xgb_roc_plot <- renderPlot({
+    plot(imbalanced_results$xgb$roc, col = "blue",
+         main = "XGBoost ROC Curve (Balanced vs Imbalanced)")
+    lines(balanced_results$xgb$roc, col = "red", lty = 2, lwd = 2)
+    text(0.7, 0.2, paste("Imbalanced AUC =", round(auc(imbalanced_results$xgb$roc), 4)), col="black")
+    text(0.65, 0.65, paste("Balanced AUC =", round(auc(balanced_results$xgb$roc), 4)), col="black")
+    legend("bottomright", legend = c("XGB Imbalanced", "XGB Balanced"),
+           col = c("blue", "red"), lty = c(1, 2), lwd = 2)
+  })
+  
+  
+  
   # Product-based clustering
   output$product_cluster_plot <- renderPlotly({
-    # Prepare data for clustering and plotting
-    data_for_clustering <- data %>%
-      mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0)) %>%
-      select(Ratings, Product_Brand, Purchase_Quantity, Product_Category) # Select only relevant columns for clustering/plotting
-
-    # Convert factors to numeric for clustering
-    data_for_clustering$Product_Brand_num <- as.numeric(data_for_clustering$Product_Brand)
-    data_for_clustering$Product_Category_num <- as.numeric(data_for_clustering$Product_Category)
-    # Ratings_numeric is not used for clustering input, but needed for potential future cluster analysis/summary
-
-    # Remove rows with NAs introduced by factor conversion or existing NAs
-    data_for_clustering <- na.omit(data_for_clustering)
-
-    # Select only the numeric variables for scaling and clustering (3 variables as in product_analysis_jiayin.R)
-    data_scaled <- data_for_clustering %>%
-      select(Product_Brand_num, Product_Category_num, Purchase_Quantity) %>% # Use the 3 variables
-      scale()
-
-    # Perform k-means clustering (using scaled data)
-    set.seed(123)
-    # Check if there are enough rows for clustering after na.omit
-    if (nrow(data_scaled) < 3) {
-      # Handle case where there are not enough data points for clustering
-      return(plotly() %>% layout(title = "Not enough data to perform clustering"))
-    }
-    kmeans_result <- kmeans(data_scaled, centers = 3)
-
-    # Add cluster labels back to the original-like data frame
-    data_for_clustering$cluster <- factor(kmeans_result$cluster)
-
-    # Perform PCA for Dimensional Reduction (using the same 3 scaled variables)
-    pca_result <- prcomp(data_scaled)
-    pca_data <- data.frame(pca_result$x)
-
-    # Ensure row names match for joining/plotting by index later
-    rownames(pca_data) <- rownames(data_for_clustering)
-
-    # Create the 3D plot using pca_data for coordinates and data_for_clustering for color/symbol
-    plotly_3d <- plot_ly(
-      x = pca_data$PC1, y = pca_data$PC2, z = pca_data$PC3,
-      type = "scatter3d",
-      mode = "markers",
-      color = data_for_clustering$cluster, # Use cluster from the data_for_clustering
-      symbol = data_for_clustering$Product_Category, # Use Product_Category from the data_for_clustering
-      colors = c("#F1C40F", "#E74C3C", "#2ECC71"),
-      marker = list(opacity = 0.8)
-    ) %>%
-      layout(
-        title = list(
-          text = "3D PCA Plot of Customer Clusters<br><sub>Based on Product Attributes and Purchase Quantity</sub>", # Updated title
-          x = 0.05
-        ),
-        legend = list(
-          title = list(text = 'Cluster')
-        ),
-        scene = list(
-          xaxis = list(title = 'PC1'),
-          yaxis = list(title = 'PC2'),
-          zaxis = list(title = 'PC3')
-        ),
-        margin = list(l = 0, r = 0, b = 0, t = 40)
-      )
-
     plotly_3d
   })
-
-  output$product_cluster_summary <- DT::renderDataTable({
-    # Prepare data for clustering and summary
-    data_for_summary <- data %>%
-      mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0)) %>%
-      select(Ratings, Product_Brand, Purchase_Quantity, Product_Category, Ratings_numeric)
-
-    # Convert factors to numeric for clustering
-    data_for_summary$Product_Brand_num <- as.numeric(data_for_summary$Product_Brand)
-    data_for_summary$Product_Category_num <- as.numeric(data_for_summary$Product_Category)
-
-    # Remove rows with NAs introduced by factor conversion or existing NAs
-    data_for_summary <- na.omit(data_for_summary)
-
-    # Select only the numeric variables for scaling and clustering (3 variables + Ratings_numeric for summary)
-    data_scaled <- data_for_summary %>%
-      select(Product_Brand_num, Product_Category_num, Purchase_Quantity) %>% # Use the 3 variables for scaling
-      scale()
-
-    # Perform k-means clustering
-    set.seed(123)
-    # Check if there are enough rows for clustering after na.omit
-    if (nrow(data_scaled) < 3) {
-       return(DT::datatable(data.frame("Summary" = "Not enough data to perform clustering")))
-    }
-    kmeans_result <- kmeans(data_scaled, centers = 3)
-
-    # Add cluster labels to original data frame for summary
-    data_for_summary$cluster <- factor(kmeans_result$cluster)
-
-    # Create cluster summary
-    cluster_summary <- data_for_summary %>% # Use data_for_summary with cluster labels
-      group_by(cluster) %>%
-      summarise(
-        Avg_Purchase = mean(Purchase_Quantity, na.rm = TRUE),
-        Avg_Rating = mean(Ratings_numeric, na.rm = TRUE),
-        # Find the most common brand within each cluster
-        Most_Common_Brand = names(sort(table(Product_Brand), decreasing = TRUE))[1],
-        Count = n(),
-        .groups = "drop"
-      )
-
-    DT::datatable(cluster_summary,
-                  options = list(pageLength = 5, dom = 't', autoWidth = TRUE),
-                  class = 'cell-border stripe hover nowrap',
-                  caption = "Product-Based Cluster Summary")
+  
+  output$avg_sil_score <- renderPrint({
+    cat(sprintf("Avg Silhouette \n K=3: %.4f \n K=4: %.4f\n", sil_score(3), sil_score(4)))
   })
   
-  output$product_rf_roc_plot <- renderPlotly({
-    # Prepare model data
-    model_data <- data %>%
-      mutate(Total_Purchase = Amount * Purchase_Quantity) %>%
-      select(Ratings, Customer_ID, Product_Brand, Product_Category, Purchase_Quantity, Amount, Total_Purchase)
-
-    # Imbalanced
-    imbalanced_results <- train_and_evaluate(model_data)
-
-    # Balanced
-    set.seed(123)
-    balanced_data <- downSample(x = model_data[, -1], y = model_data$Ratings, yname = "Ratings")
-    balanced_results <- train_and_evaluate(balanced_data)
-
-    # Prepare ROC data for plotly
-    imbalanced_roc <- imbalanced_results$rf$roc
-    balanced_roc <- balanced_results$rf$roc
-
-    roc_df <- data.frame(
-      FPR = c(1 - imbalanced_roc$specificities, 1 - balanced_roc$specificities),
-      TPR = c(imbalanced_roc$sensitivities, balanced_roc$sensitivities),
-      Type = rep(c("Imbalanced", "Balanced"),
-                 c(length(imbalanced_roc$specificities), length(balanced_roc$specificities)))
-    )
-
-    auc_imb <- round(auc(imbalanced_roc), 4)
-    auc_bal <- round(auc(balanced_roc), 4)
-
-    p <- ggplot(roc_df, aes(x = FPR, y = TPR, color = Type)) +
-      geom_line(size = 1.2) +
-      geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
-      scale_color_manual(values = met.brewer("Cassatt1", 2)) + # Using MetBrewer Cassatt1 palette
-      labs(
-        title = "Random Forest ROC Curve (Balanced vs Imbalanced)",
-        subtitle = paste("AUC Imbalanced =", auc_imb, "| AUC Balanced =", auc_bal),
-        x = "False Positive Rate (1 - Specificity)",
-        y = "True Positive Rate (Sensitivity)",
-        color = "Data Type"
-      ) +
-      theme_minimal()
-
-    ggplotly(p)
+  output$product_cluster_summary <- renderTable({
+    cluster_summary
+  }, 
+  striped = TRUE, 
+  hover = TRUE, 
+  bordered = TRUE, 
+  caption = "Product-Based Cluster Summary")
+  
+  output$product_elbow_method <- renderPlot({
+    elbow_method_plot
   })
-
+  
+  output$dendrogram_plot <- renderPlot({
+    plot(dend_colored,
+         main = "Clustered Customers by Brand & Cluster (Sampled)",
+         horiz = TRUE,
+         cex.main = 1.2)
+    
+    for (h in c(0.5, 1, 1.5, 2, 2.5)) {
+      abline(v = h, col = "grey60", lty = 2)
+    }
+    
+    abline(v=0, col="black", lwd= 1)
+  })
+  
 }
 
 # Run the application

@@ -9,7 +9,7 @@ required_packages <- c(
   "reshape2", "caret", "randomForest", "xgboost", "pROC",
   "plotly", "dendextend", "viridis", "purrr", "cluster", "factoextra", "NbClust", "fmsb",
   "vcd", "broom", "forcats", "arm", "RColorBrewer", "scales", "nnet",
-  "shiny", "shinydashboard", "DT", "shinycssloaders", "tidyverse"
+  "shiny", "shinydashboard", "DT", "shinycssloaders", "tidyverse", "conflicted"
 )
 
 # Install any packages that are not already installed
@@ -87,4 +87,12 @@ library(shinycssloaders) # Loading spinners for Shiny
 
 # ─── Additional Utilities ───
 library(tidyverse)    # Collection of packages for data science
+library(conflicted)   # Handle conflict package
 
+# Explicitly declare which package prefer
+conflict_prefer("select", "dplyr")
+conflicts_prefer(janitor::chisq.test)
+conflicts_prefer(pROC::roc)
+conflicts_prefer(shinydashboard::box)
+conflicts_prefer(shiny::dataTableOutput)
+conflicts_prefer(shiny::renderDataTable)

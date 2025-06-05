@@ -20,7 +20,7 @@ library(dplyr)
 library(car) 
 
 ## a. Subset data for manova analysis
-manova_data <- retail_data_proc |> dplyr::select(Ratings, Purchase_Quantity, Product_Category) |> mutate(
+manova_data <- retail_data_proc |> select(Ratings, Purchase_Quantity, Product_Category) |> mutate(
   ## b. Make ratings numeric
   Ratings_Num = as.numeric(Ratings)
 )
@@ -280,6 +280,7 @@ heatmap_plot <- ggplot(pair_matrix, aes(x = Product1, y = Product2, fill = Count
     legend.position = "bottom"
   )
 
+heatmap_plot
 
 ### ─────────────────────────────────────────────
 ### 3. Can customer satisfaction be explained by a combination of brand preference and purchasing behavior across different product categories?
@@ -339,8 +340,9 @@ print(imbalanced_results$xgb$confusion_matrix)
 library(ggplot2)
 # Step 5: Visualize ROC values
 # [Random Forest ROC plot]
-plot(imbalanced_results$rf$roc, col = "blue", lwd = 2,
-     main = "Random Forest ROC Curve (Balanced vs Imbalanced)")
+pROC::plot.roc(imbalanced_results$rf$roc, col = "blue",
+     main = "Random Forest ROC Curve (Balanced vs Imbalanced)",
+     legacy.axes = TRUE)
 lines(balanced_results$rf$roc, col = "red", lty = 2, lwd = 2)
 text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$rf$roc), 4)), col="black")
 text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$rf$roc), 4)), col="black")
@@ -351,8 +353,9 @@ legend("bottomright",
        lwd = 2)
 
 # [XGBoost ROC plot]
-plot(imbalanced_results$xgb$roc, col = "blue", lwd = 2,
-     main = "XGBoost ROC Curve (Balanced vs Imbalanced)")
+pROC::plot.roc(imbalanced_results$xgb$roc, col = "blue",
+     main = "XGBoost ROC Curve (Balanced vs Imbalanced)",
+     legacy.axes = TRUE)
 lines(balanced_results$xgb$roc, col = "red", lty = 2, lwd = 2)
 text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$xgb$roc), 4)), col="black")
 text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$xgb$roc), 4)), col="black")

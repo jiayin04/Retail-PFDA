@@ -110,11 +110,6 @@ preprocess <- function(retail_data) {
   # Complete the data
   retail_data[mice_cols] <- complete(mice_imputed)
   
-  # View data
-  View(retail_data)
-  str(retail_data)
-  summary(retail_data)
-  
   
   ### ─────────────────────────────────────────────
   ### Gender Imputation via Name (gender package)

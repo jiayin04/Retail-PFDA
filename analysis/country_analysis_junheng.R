@@ -1,140 +1,3 @@
-# Load libraries
-library(tidyr)
-library(dplyr)
-library(ggplot2)
-library(viridis)
-library(randomForest)
-library(caret)
-library(tidyverse)
-
-# View the structure of your dataset  
-data <- retail_data_proc
-str(data)
-
-#==================================================================================
-# Analysis 1: What are the patterns and distributions of customer satisfaction 
-# ratings across different countries, and how do the rating profiles vary geographically?
-#==================================================================================
-
-#---Descriptive Analysis---#
-
-# a. Convert 'Ratings' and 'Country' to character columns
-data$Ratings <- as.character(data$Ratings)
-data$Country <- as.character(data$Country)
-
-# b. Create the contingency table
-table_ratings <- table(data$Country, data$Ratings)
-
-# c. View the table to ensure no empty categories
-print(table_ratings)
-
-# d. Convert Ratings to numeric for average rating analysis
-data$Ratings_numeric <- ifelse(data$Ratings == "Low", 1, 5)
-
-# e. Calculate descriptive statistics by ratings
-rating_stats_by_country <- data %>%
-  group_by(Country) %>%
-  summarise(
-    Count = n(),
-    Mean = mean(Ratings_numeric, na.rm = TRUE),
-    Median = median(Ratings_numeric, na.rm = TRUE),
-    SD = sd(Ratings_numeric, na.rm = TRUE),
-    Min = min(Ratings_numeric, na.rm = TRUE),
-    Max = max(Ratings_numeric, na.rm = TRUE)
-  ) %>%
-  arrange(desc(Mean))
-
-print(rating_stats_by_country)
-
-# f. Proportional bar chart of ratings by country
-ggplot(data, aes(x = Country, fill = Ratings)) +
-  geom_bar(position = "fill") +
-  scale_y_continuous(labels = scales::percent) +
-  labs(title = "Proportional Customer Ratings by Country", y = "Ratings") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(values = c("Low" = "red", "High" = "blue"))
-
-# g. Heatmap of ratings by country
-ggplot(as.data.frame(as.table(table_ratings)), aes(Var1, Var2, fill = Freq)) +
-  geom_tile() +
-  labs(title = "Heatmap of Ratings by Country", x = "Country", y = "Rating") +
-  theme_minimal() +
-  scale_fill_gradient(low = "white", high = "blue")
-
-# h. Stacked bar chart (absolute counts)
-ggplot(data, aes(x = Country, fill = Ratings)) +
-  geom_bar(position = "stack") +
-  labs(title = "Absolute Customer Ratings by Country", y = "Count") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(values = c("Low" = "red", "High" = "blue"))
-
-# i. Total number of ratings per country
-rating_count_per_country <- data %>%
-  group_by(Country) %>%
-  summarise(Total_Ratings = n())
-
-ggplot(rating_count_per_country, aes(x = Country, y = Total_Ratings, fill = Country)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Total Number of Ratings per Country", y = "Total Ratings") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_viridis_d()
-
-# j. Calculate average rating per country
-avg_country_ratings <- data %>%
-  group_by(Country) %>%
-  summarise(Average_Rating = mean(Ratings_numeric, na.rm = TRUE))
-
-print(avg_country_ratings)
-
-# k. Violin plot of ratings by country
-ggplot(data, aes(x = Country, y = Ratings_numeric, fill = Country)) +
-  geom_violin(trim = FALSE, alpha = 0.7) +
-  geom_boxplot(width = 0.1, fill = "white", alpha = 0.5) +
-  labs(title = "Distribution of Ratings by Country", y = "Rating Score") +
-  theme_minimal() +
-  scale_fill_viridis_d()
-
-# l. Visualize average rating per country
-ggplot(avg_country_ratings, aes(x = Country, y = Average_Rating, fill = Country)) +
-  geom_col() +
-  labs(title = "Average Customer Rating by Country", y = "Average Rating") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_viridis_d()
-
-#==================================================================================
-# Analysis 2: Is there a statistically significant difference in customer 
-# satisfaction ratings among countries, and which specific country pairs show 
-# meaningful differences in their rating distributions?
-#==================================================================================
-
-#---Diagnostic Analysis---#
-
-# a. Perform Chi-square test if no zero counts
-if (all(table_ratings > 0)) {
-  chisq_country_result <- chisq.test(table_ratings)
-  print(chisq_country_result)
-} else {
-  # Perform Fisher's Exact Test if there are zero counts
-  fisher_country_result <- fisher.test(table_ratings)
-  print(fisher_country_result)
-}
-
-# b. Perform ANOVA test to compare mean ratings
-anova_country_rating <- aov(Ratings_numeric ~ Country, data = data)
-summary(anova_country_rating)
-
-anova_country_model <- aov(Ratings_numeric ~ Country, data = data)
-
-# c. Run Tukey HSD post-hoc test
-tukey_country_result <- TukeyHSD(anova_country_model)
-
-# d. View results
-print(tukey_country_result)
-
 #==================================================================================
 # Analysis 3: Can we accurately predict customer satisfaction ratings based on 
 # country location, and which countries are most likely to generate high customer 
@@ -143,7 +6,7 @@ print(tukey_country_result)
 
 #---Predictive Analysis---#
 
-# Random Forest Model
+# Data Preparation for Both Models
 
 # a. Select only Country and Ratings columns
 raw_data_country <- data %>%
@@ -221,7 +84,98 @@ train_index_country <- createDataPartition(balanced_data_country$Ratings, p = 0.
 train_data_country <- balanced_data_country[train_index_country, ]
 test_data_country <- balanced_data_country[-train_index_country, ]
 
-# l. Build Random Forest model
+#==================================================================================
+#  Logistic Regression Model
+#==================================================================================
+
+print("\n=== LOGISTIC REGRESSION MODEL ===\n")
+
+# a. Convert Ratings to binary for logistic regression (1 = High, 0 = Low)
+balanced_data_country$Ratings_binary <- ifelse(balanced_data_country$Ratings == "High", 1, 0)
+train_data_country$Ratings_binary <- ifelse(train_data_country$Ratings == "High", 1, 0)
+test_data_country$Ratings_binary <- ifelse(test_data_country$Ratings == "High", 1, 0)
+
+# b. Build logistic regression model
+logistic_model_country <- glm(Ratings_binary ~ Country, 
+                              data = train_data_country, 
+                              family = binomial)
+
+# c. Print model summary
+print("=== LOGISTIC REGRESSION MODEL SUMMARY ===")
+print(summary(logistic_model_country))
+
+# d. Make predictions on test data
+predicted_probs_country <- predict(logistic_model_country, test_data_country, type = "response")
+predicted_ratings_country <- ifelse(predicted_probs_country >= 0.5, "High", "Low")
+predicted_ratings_country <- factor(predicted_ratings_country, levels = c("Low", "High"))
+
+# e. Create confusion matrix
+conf_matrix_logistic_country <- confusionMatrix(predicted_ratings_country, test_data_country$Ratings)
+print("=== LOGISTIC REGRESSION PERFORMANCE ===")
+print(conf_matrix_logistic_country)
+
+# f. Get predicted probabilities for each country
+country_predictions_logistic <- data.frame()
+for(country in levels(balanced_data_country$Country)) {
+  country_test_logistic <- data.frame(Country = factor(country, levels = levels(balanced_data_country$Country)))
+  prob_high_country_logistic <- predict(logistic_model_country, country_test_logistic, type = "response")
+  country_predictions_logistic <- rbind(country_predictions_logistic, 
+                                        data.frame(Country = country, 
+                                                   Predicted_High_Probability = round(prob_high_country_logistic * 100, 2)))
+}
+
+# g. Sort by probability and display
+country_predictions_logistic <- country_predictions_logistic[order(-country_predictions_logistic$Predicted_High_Probability), ]
+print("=== PREDICTED HIGH RATING PROBABILITIES BY COUNTRY (LOGISTIC REGRESSION) ===")
+print(country_predictions_logistic)
+
+# h. Visualize predicted probabilities from logistic regression
+plot_logistic_country <- ggplot(country_predictions_logistic, 
+                                aes(x = reorder(Country, Predicted_High_Probability), 
+                                    y = Predicted_High_Probability, 
+                                    fill = Predicted_High_Probability)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = paste0(Predicted_High_Probability, "%")), 
+            hjust = -0.1, size = 3.5, fontface = "bold") +
+  coord_flip() +
+  scale_fill_viridis_c(name = "Probability (%)", 
+                       option = "plasma",
+                       begin = 0.2, end = 0.9) +
+  labs(title = "Predicted High Rating Probabilities by Country",
+       subtitle = "Logistic Regression Model",
+       x = "Country", 
+       y = "Predicted Probability of High Rating (%)") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 11, face = "bold"),
+    legend.position = "right",
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+  ylim(0, max(country_predictions_logistic$Predicted_High_Probability) * 1.1)
+
+print(plot_logistic_country)
+
+# Final performance metrics for Logistic Regression Model
+final_metrics_country_logistic <- data.frame(
+  Accuracy = conf_matrix_logistic_country$overall["Accuracy"],
+  Sensitivity = conf_matrix_logistic_country$byClass["Sensitivity"],
+  Specificity = conf_matrix_logistic_country$byClass["Specificity"],
+  Precision = conf_matrix_logistic_country$byClass["Pos Pred Value"]
+)
+print("=== LOGISTIC REGRESSION DETAILED METRICS ===")
+print(final_metrics_country_logistic)
+
+#==================================================================================
+# Additional Model: Random Forest Model
+#==================================================================================
+
+print("\n=== RANDOM FOREST MODEL ===\n")
+
+# a. Build Random Forest model
 rf_country_ratings_model <- randomForest(
   Ratings ~ Country,
   data = train_data_country,
@@ -229,21 +183,24 @@ rf_country_ratings_model <- randomForest(
   importance = TRUE
 )
 
-# m. Print model summary
+# b. Print model summary
+print("=== RANDOM FOREST MODEL SUMMARY ===")
 print(rf_country_ratings_model)
 
-# n. Make predictions on test data
-predictions_country <- predict(rf_country_ratings_model, test_data_country)
+# c. Make predictions on test data
+predictions_country_rf <- predict(rf_country_ratings_model, test_data_country)
 
-# o. Create confusion matrix for evaluation
-conf_matrix_country <- confusionMatrix(predictions_country, test_data_country$Ratings)
-print(conf_matrix_country)
+# d. Create confusion matrix for evaluation
+conf_matrix_rf_country <- confusionMatrix(predictions_country_rf, test_data_country$Ratings)
+print("=== RANDOM FOREST PERFORMANCE ===")
+print(conf_matrix_rf_country)
 
-# p. Variable importance (only Country in this case)
+# e. Variable importance (only Country in this case)
 var_importance_country <- importance(rf_country_ratings_model)
+print("=== VARIABLE IMPORTANCE ===")
 print(var_importance_country)
 
-# q. Calculate rating distribution by country in our balanced dataset
+# f. Calculate rating distribution by country in our balanced dataset
 country_ratings <- balanced_data_country %>%
   group_by(Country) %>%
   summarize(
@@ -254,10 +211,10 @@ country_ratings <- balanced_data_country %>%
   ) %>%
   arrange(desc(High_Percentage))
 
-print("Rating percentages by country (balanced data):")
+print("=== RATING PERCENTAGES BY COUNTRY (BALANCED DATA) ===")
 print(country_ratings)
 
-# r. Visualize rating distribution by country
+# g. Visualize rating distribution by country
 ggplot(balanced_data_country, aes(x = reorder(Country, -as.numeric(Ratings == "High")), fill = Ratings)) +
   geom_bar(position = "fill") +
   scale_y_continuous(labels = scales::percent) +
@@ -268,7 +225,7 @@ ggplot(balanced_data_country, aes(x = reorder(Country, -as.numeric(Ratings == "H
   scale_fill_manual(values = c("Low" = "#E69F00", "High" = "#56B4E9")) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-# s. Calculate accuracy by country
+# h. Calculate accuracy by country
 train_predictions_country <- predict(rf_country_ratings_model, train_data_country)
 train_results_country <- data.frame(
   Country = train_data_country$Country,
@@ -285,108 +242,100 @@ country_accuracy <- train_results_country %>%
   ) %>%
   arrange(desc(Accuracy))
 
-print("Prediction accuracy by country:")
+print("=== PREDICTION ACCURACY BY COUNTRY ===")
 print(country_accuracy)
 
-# u. Predict high rating percentages for each country
-for(country in levels(balanced_data_country$Country)) {
+# i. Predict high rating percentages for each country using Random Forest
+all_country_predictions <- data.frame(
+  Country = character(),
+  Predicted_High_Probability = numeric(),
+  stringsAsFactors = FALSE
+)
+
+cat("=== PREDICTED HIGH RATING PROBABILITIES BY COUNTRY (RANDOM FOREST) ===\n")
+for (country in levels(balanced_data_country$Country)) {
   # Create test data for this country
   country_test <- data.frame(Country = factor(country, levels = levels(balanced_data_country$Country)))
   
   # Get predictions for this country
-  country_pred <- predict(rf_country_ratings_model, country_test, type = "prob")
+  prediction <- predict(rf_country_ratings_model, country_test, type = "prob")
+  predicted_prob <- round(prediction[, "High"] * 100, 2)
   
-  # Print results
-  cat(paste0("Predicted high rating percentage for ", country, ": ", 
-             round(country_pred[, "High"] * 100, 2), "%\n"))
+  # Print result
+  cat(paste0("Predicted high rating percentage for ", country, ": ", predicted_prob, "%\n"))
+  
+  # Append to results
+  all_country_predictions <- rbind(all_country_predictions, 
+                                   data.frame(Country = country, 
+                                              Predicted_High_Probability = predicted_prob))
 }
 
-# v. Final performance metrics
-final_metrics_country <- data.frame(
-  Accuracy = conf_matrix_country$overall["Accuracy"],
-  Sensitivity = conf_matrix_country$byClass["Sensitivity"],
-  Specificity = conf_matrix_country$byClass["Specificity"],
-  Precision = conf_matrix_country$byClass["Pos Pred Value"]
-)
-print("Model performance metrics:")
-print(final_metrics_country)
-
-#==================================================================================
-# Analysis 4: What specific actions should be taken to improve customer 
-# satisfaction ratings in each country?
-#==================================================================================
-
-#---Prescriptive Analysis---#
-
-# a. Calculate satisfaction rate by country
-country_summary <- data %>%
-  group_by(Country) %>%
-  summarise(
-    Total_Customers = n(),
-    High_Ratings = sum(Ratings == "High"),
-    Country_Satisfaction_Rate = round((High_Ratings / Total_Customers) * 100, 1)
-  ) %>%
-  arrange(Country_Satisfaction_Rate)
-
-print("Country Satisfaction Rates:")
-print(country_summary)
-
-# b. Categorize countries by performance
-country_summary <- country_summary %>%
-  mutate(
-    Country_Performance_Level = case_when(
-      Country_Satisfaction_Rate >= 70 ~ "Good",
-      Country_Satisfaction_Rate >= 50 ~ "Average",
-      TRUE ~ "Needs Improvement"
-    )
-  )
-
-# c. Create action recommendations
-recommendations_country <- country_summary %>%
-  mutate(
-    Country_Recommended_Action = case_when(
-      Country_Performance_Level == "Needs Improvement" ~ "Priority: Immediate service improvement needed",
-      Country_Performance_Level == "Average" ~ "Focus: Targeted improvements to reach 70%+",
-      TRUE ~ "Maintain: Continue current good practices"
-    ),
-    Country_Target_Satisfaction = case_when(
-      Country_Performance_Level == "Needs Improvement" ~ Country_Satisfaction_Rate + 30,
-      Country_Performance_Level == "Average" ~ 75,
-      TRUE ~ Country_Satisfaction_Rate + 5
-    )
-  )
-
-print("Country Recommendations:")
-print(recommendations_country %>% select(Country, Country_Satisfaction_Rate, Country_Performance_Level, Country_Recommended_Action))
-
-# d. Visualize current vs target satisfaction
-ggplot(recommendations_country, aes(x = reorder(Country, Country_Satisfaction_Rate))) +
-  geom_col(aes(y = Country_Satisfaction_Rate, fill = Country_Performance_Level), alpha = 0.7) +
-  geom_point(aes(y = Country_Target_Satisfaction), color = "red", size = 3) +
-  geom_segment(aes(xend = Country, y = Country_Satisfaction_Rate, yend = Country_Target_Satisfaction), 
-               color = "red", linetype = "dashed") +
+#j. Visualization for high ratings predictions
+plot_rf_country <- ggplot(all_country_predictions, 
+                          aes(x = reorder(Country, Predicted_High_Probability), 
+                              y = Predicted_High_Probability, 
+                              fill = Predicted_High_Probability)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = paste0(Predicted_High_Probability, "%")), 
+            hjust = -0.1, size = 3.5, fontface = "bold") +
   coord_flip() +
-  labs(title = "Current vs Target Satisfaction Rates",
-       subtitle = "Red dots show improvement targets",
-       x = "Country", y = "Satisfaction Rate (%)",
-       fill = "Performance Level") +
-  theme_minimal()
+  scale_fill_viridis_c(name = "Probability (%)", 
+                       option = "viridis",
+                       begin = 0.2, end = 0.9) +
+  labs(title = "Predicted High Rating Probabilities by Country",
+       subtitle = "Random Forest Model",
+       x = "Country", 
+       y = "Predicted Probability of High Rating (%)") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 11, face = "bold"),
+    legend.position = "right",
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+  ylim(0, max(all_country_predictions$Predicted_High_Probability) * 1.1)
 
-# e. Simple action plan summary
-action_summary <- recommendations_country %>%
-  count(Country_Performance_Level, Country_Recommended_Action) %>%
-  rename(Countries_Count = n)
+print(plot_rf_country)
 
-print("Action Plan Summary:")
-print(action_summary)
+#k. Final performance metrics for Random Forest
+final_metrics_country_rf <- data.frame(
+  Accuracy = conf_matrix_rf_country$overall["Accuracy"],
+  Sensitivity = conf_matrix_rf_country$byClass["Sensitivity"],
+  Specificity = conf_matrix_rf_country$byClass["Specificity"],
+  Precision = conf_matrix_rf_country$byClass["Pos Pred Value"]
+)
+print("=== RANDOM FOREST DETAILED METRICS ===")
+print(final_metrics_country_rf)
 
-# f. Priority countries (lowest satisfaction rates)
-priority_countries <- head(recommendations_country, 3)
+#==================================================================================
+# Model Comparison
+#==================================================================================
 
-cat("\nTOP 3 PRIORITY COUNTRIES FOR IMPROVEMENT:\n")
-for(i in 1:3) {
-  cat(paste0(i, ". ", priority_countries$Country[i], 
-             " (", priority_countries$Country_Satisfaction_Rate[i], "% satisfaction)\n"))
-  cat("   Action:", priority_countries$Country_Recommended_Action[i], "\n\n")
-}
+print("\n=== MODEL COMPARISON ===\n")
 
+# Compare model performance
+performance_comparison_country <- data.frame(
+  Model = c("Logistic Regression", "Random Forest"),
+  Accuracy = c(
+    round(conf_matrix_logistic_country$overall["Accuracy"], 3),
+    round(conf_matrix_country$overall["Accuracy"], 3)
+  ),
+  Sensitivity = c(
+    round(conf_matrix_logistic_country$byClass["Sensitivity"], 3),
+    round(conf_matrix_country$byClass["Sensitivity"], 3)
+  ),
+  Specificity = c(
+    round(conf_matrix_logistic_country$byClass["Specificity"], 3),
+    round(conf_matrix_country$byClass["Specificity"], 3)
+  ),
+  Precision = c(
+    round(conf_matrix_logistic_country$byClass["Pos Pred Value"], 3),
+    round(conf_matrix_country$byClass["Pos Pred Value"], 3)
+  )
+)
+
+print("=== FINAL MODEL PERFORMANCE COMPARISON ===")
+print(performance_comparison_country)
