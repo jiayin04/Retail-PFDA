@@ -1,17 +1,21 @@
 # main.R
 # Main script that consisted of the entire analysis workflow
 
-# Source utility scripts
-source("utils/helper_functions.R")
-source("preprocessing/data_cleaning.R")
-
 ### ─────────────────────────────────────────────
 ### 1. Install and Load Packages
 ### ─────────────────────────────────────────────
 source("utils/libraries.R")
 
+
 ### ─────────────────────────────────────────────
-### 2. Set Working Directory & Load Dataset
+### 2. Source Utility Scripts
+### ─────────────────────────────────────────────
+source("utils/helper_functions.R")
+source("preprocessing/data_cleaning.R")
+
+
+### ─────────────────────────────────────────────
+### 3. Set Working Directory & Load Dataset
 ### ─────────────────────────────────────────────
 # Set working directory
 WD <- "~/Custom Office Templates/Academic/Degree/Year 2 Sem 1/PfDA/Assignment/R Source Code" # Change to your WD
@@ -25,7 +29,7 @@ View(retail_full_data)
 
 
 ### ─────────────────────────────────────────────
-### 3. Initial Cleaning & Preprocessing
+### 4. Initial Cleaning & Preprocessing
 ### ─────────────────────────────────────────────
 # Apply preporcessing
 retail_data_proc <- preprocess(retail_full_data)
@@ -38,7 +42,7 @@ colSums(is.na(retail_data_proc))
 
 
 ### ─────────────────────────────────────────────
-### 4. Individual Analyses
+### 5. Individual Analyses
 ### ─────────────────────────────────────────────
 # Nik Nur Farah Hana Binti Nik Muhd Hayazi Mazlan (TP071995) - To analyze the impact of age on purchasing behavior and customer satisfaction.
 source("analysis/age_analysis_hana.R")
@@ -54,12 +58,12 @@ source("analysis/analysis_aikyen.R")
 
 
 ### ─────────────────────────────────────────────
-### 5. Group Analysis
+### 6. Group Analysis
 ### ─────────────────────────────────────────────
 source("analysis/group_predictive_analysis.R")
 
 
 ### ─────────────────────────────────────────────
-### 6. GUI Display
+### 7. GUI Display
 ### ─────────────────────────────────────────────
 source("Dashboard.R")

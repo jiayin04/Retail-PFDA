@@ -83,19 +83,11 @@ preprocess <- function(retail_data) {
   # Subset only numerical columns
   retail_data_numeric <- retail_data[, missForest_cols]
   
-  # Check missing values before imputation
-  print("Missing values before imputation:")
-  print(colSums(is.na(retail_data_numeric)))
-  
   # Convert to data frame
   retail_numeric_df <- as.data.frame(retail_data_numeric)
   
   # Apply missForest imputation
   retail_imputed <- missForest(retail_numeric_df)
-  
-  # Check missing values after imputation
-  print("Missing values after imputation:")
-  print(colSums(is.na(retail_imputed$ximp)))
   
   # Replace imputed values in the original dataset
   retail_data <- retail_data |> 

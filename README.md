@@ -37,6 +37,7 @@ source("main.R")
 ``` bash
 Retail-PFDA/
 ├── main.R                   # Main script that sources other files and consist of the analysis 
+├── Dashboard.R              # GUI dashboard that display part of the analysis 
 ├── utils/ 
 │   ├── libraries.R          # Package installation and loading 
 │   └── helper_functions.R   # Reusable helper functions 
@@ -44,6 +45,8 @@ Retail-PFDA/
 │   └── data_cleaning.R      # Data preprocessing and cleaning functions 
 ├── analysis/ 
 │   ├── product_analysis_jiayin.R    # Analysis for Product 
+│   ├── age_analysis_hana.R          # Analysis for Age
+│   ├── country_analysis_junheng.R   # Analysis for Country
+│   ├── analysis_aikyen.R            # Analysis for Transaction Logistics
 │   ├── group_predictive_analysis.R  # Analysis for Group ML 
-│   ├── .... 
 ```
