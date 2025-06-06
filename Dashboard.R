@@ -693,22 +693,7 @@ server <- function(input, output, session) {
   })
   
   output$country_stats_table <- DT::renderDataTable({
-    rating_stats <- data %>%
-      group_by(Country) %>%
-      summarise(
-        Count = n(),
-        Mean = round(mean(Ratings_numeric, na.rm = TRUE), 2),
-        Median = median(Ratings_numeric, na.rm = TRUE),
-        SD = round(sd(Ratings_numeric, na.rm = TRUE), 2),
-        Min = min(Ratings_numeric, na.rm = TRUE),
-        Max = max(Ratings_numeric, na.rm = TRUE),
-        High_Rating_Pct = round(sum(Ratings == "High")/n() * 100, 1)
-      ) %>%
-      arrange(desc(Mean))
-    
-    DT::datatable(rating_stats, 
-                  options = list(pageLength = 10, scrollX = TRUE),
-                  caption = "Statistical Summary by Country")
+    rating_stats_by_country
   })
   
   # Diagnostic Analysis Outputs
