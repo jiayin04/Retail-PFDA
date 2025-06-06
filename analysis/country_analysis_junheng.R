@@ -45,13 +45,32 @@ rating_stats_by_country <- data %>%
 print(rating_stats_by_country)
 
 # f. Proportional bar chart of ratings by country
+# Create summary data for labels
+data_summary_country <- data %>%
+  group_by(Country, Ratings) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(Country) %>%
+  mutate(total = sum(count),
+         prop = count / total) %>%
+  arrange(Country, desc(Ratings)) %>%  # Arrange so High comes first (top)
+  mutate(pos = cumsum(prop) - 0.5 * prop)
+
 plot_proportional_ratings_country <- ggplot(data, aes(x = Country, fill = Ratings)) +
   geom_bar(position = "fill") +
+  geom_text(data = data_summary_country, 
+            aes(x = Country, y = pos, label = count),
+            position = position_identity(),
+            color = "white", 
+            fontface = "bold",
+            size = 3.5) +
   scale_y_continuous(labels = scales::percent) +
-  labs(title = "Proportional Customer Ratings by Country", y = "Ratings") +
+  labs(title = "Proportional Customer Ratings by Country", 
+       y = "Proportion of Ratings",
+       subtitle = "Numbers show actual counts for each rating category") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_fill_manual(values = c("Low" = "red", "High" = "green"))
+
 print(plot_proportional_ratings_country)
 
 # g. Heatmap of ratings by country 
@@ -80,7 +99,7 @@ plot_pie_ratings <- ggplot(rating_totals, aes(x = "", y = Count, fill = Ratings)
 print(plot_pie_ratings)
 
 
-# Create a more plotly-friendly version
+# plotly-friendly version
 plot_pie_ratings_plotly <- plot_ly(rating_totals, 
                                   labels = ~Ratings, 
                                   values = ~Count, 
@@ -158,15 +177,10 @@ print(plot_scatter_count_vs_avg)
 
 #---Diagnostic Analysis---#
 
-# a. Perform Chi-square test if no zero counts
-if (all(table_ratings > 0)) {
-  chisq_country_result <- chisq.test(table_ratings)
-  print(chisq_country_result)
-} else {
-  # Perform Fisher's Exact Test if there are zero counts
-  fisher_country_result <- fisher.test(table_ratings)
-  print(fisher_country_result)
-}
+# a. Perform Chi-square test
+
+chisq_country_result <- chisq.test(table_ratings)
+print(chisq_country_result)
 
 # b. Perform ANOVA test to compare mean ratings
 anova_country_rating <- aov(Ratings_numeric ~ Country, data = data)
