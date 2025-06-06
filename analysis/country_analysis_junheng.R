@@ -186,12 +186,9 @@ print(chisq_country_result)
 anova_country_rating <- aov(Ratings_numeric ~ Country, data = data)
 summary(anova_country_rating)
 
-anova_country_model <- aov(Ratings_numeric ~ Country, data = data)
-
 # c. Run Tukey HSD post-hoc test
+anova_country_model <- aov(Ratings_numeric ~ Country, data = data)
 tukey_country_result <- TukeyHSD(anova_country_model)
-
-# d. View results
 print(tukey_country_result)
 
 #==================================================================================
