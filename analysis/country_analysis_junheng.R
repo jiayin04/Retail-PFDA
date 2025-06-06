@@ -612,7 +612,7 @@ plot_satisfaction_targets_country <- ggplot(recommendations_country, aes(x = reo
 
 print(plot_satisfaction_targets_country)
 
-# e. Simple action plan summary
+# e. Action plan summary
 action_summary <- recommendations_country %>%
   count(Country_Performance_Level, Country_Recommended_Action) %>%
   rename(Countries_Count = n)
