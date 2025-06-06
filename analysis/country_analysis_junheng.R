@@ -87,7 +87,7 @@ plot_pie_ratings_plotly <- plot_ly(rating_totals,
                                   type = 'pie',
                                   textinfo = 'label+percent',
                                   insidetextorientation = 'radial',
-                                  marker = list(colors = c('red', 'green'))) %>%
+                                  marker = list(colors = c('green', 'red'))) %>%
   layout(title = list(text = "Overall Distribution of Customer Ratings",
                      x = 0.5,
                      y = 0.95,
