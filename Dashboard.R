@@ -111,11 +111,11 @@ ui <- dashboardPage(
                                ),
                                column(6,
                                       box(
-                                        title = "Stacked Ratings by Country",
+                                        title = "Pie Chart for Overall Distribution Ratings",
                                         status = "success",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(plotlyOutput("stacked_ratings_plot"))
+                                        withSpinner(plotlyOutput("pie_ratings_plot"))
                                       )
                                )
                              ),
@@ -136,6 +136,17 @@ ui <- dashboardPage(
                                         solidHeader = TRUE,
                                         width = 12,
                                         withSpinner(plotlyOutput("violin_ratings_plot"))
+                                      )
+                               )
+                             ),
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "Scatter Plot for Relationship between Total Ratings and Average Ratings",
+                                        status = "primary",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotlyOutput("scatter_ratings_plot"))
                                       )
                                )
                              ),
@@ -673,23 +684,27 @@ server <- function(input, output, session) {
   })
   
   output$avg_ratings_plot <- renderPlotly({
-    ggplotly(plot_avg_ratings_country)
+    ggplotly(plot_lollipop_avg_ratings)
   })
   
   output$heatmap_plot <- renderPlotly({
     ggplotly(plot_heatmap_ratings_country)
   })
   
-  output$stacked_ratings_plot <- renderPlotly({
-    ggplotly(plot_stacked_ratings_country)
+  output$pie_ratings_plot <- renderPlotly({
+    plot_pie_ratings_plotly
   })
   
   output$total_ratings_plot <- renderPlotly({
-    ggplotly(plot_total_ratings_country)
+    ggplotly(plot_dot_total_ratings)
   })
   
   output$violin_ratings_plot <- renderPlotly({
     ggplotly(plot_violin_ratings_country)
+  })
+  
+  output$scatter_ratings_plot <- renderPlotly({
+    ggplotly(plot_scatter_count_vs_avg)
   })
   
   output$country_stats_table <- DT::renderDataTable({

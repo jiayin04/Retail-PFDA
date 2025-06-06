@@ -16,9 +16,7 @@ str(data)
 # Analysis 1: What are the patterns and distributions of customer satisfaction 
 # ratings across different countries, and how do the rating profiles vary geographically?
 #==================================================================================
-
 #---Descriptive Analysis---#
-
 # a. Convert 'Ratings' and 'Country' to character columns
 data$Ratings <- as.character(data$Ratings)
 data$Country <- as.character(data$Country)
@@ -44,7 +42,6 @@ rating_stats_by_country <- data %>%
     Max = max(Ratings_numeric, na.rm = TRUE)
   ) %>%
   arrange(desc(Mean))
-
 print(rating_stats_by_country)
 
 # f. Proportional bar chart of ratings by country
@@ -54,69 +51,104 @@ plot_proportional_ratings_country <- ggplot(data, aes(x = Country, fill = Rating
   labs(title = "Proportional Customer Ratings by Country", y = "Ratings") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(values = c("Low" = "red", "High" = "blue"))
-
+  scale_fill_manual(values = c("Low" = "red", "High" = "green"))
 print(plot_proportional_ratings_country)
 
-# g. Heatmap of ratings by country
+# g. Heatmap of ratings by country 
 plot_heatmap_ratings_country <- ggplot(as.data.frame(as.table(table_ratings)), aes(Var1, Var2, fill = Freq)) +
   geom_tile() +
   labs(title = "Heatmap of Ratings by Country", x = "Country", y = "Rating") +
   theme_minimal() +
-  scale_fill_gradient(low = "white", high = "blue")
-
+  scale_fill_gradient(low = "white", high = "purple")
 print(plot_heatmap_ratings_country)
 
-# h. Stacked bar chart (absolute counts)
-plot_stacked_ratings_country <- ggplot(data, aes(x = Country, fill = Ratings)) +
-  geom_bar(position = "stack") +
-  labs(title = "Absolute Customer Ratings by Country", y = "Count") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(values = c("Low" = "red", "High" = "blue"))
+# h.Pie chart showing distribution of ratings across all countries
+rating_totals <- data %>%
+  group_by(Ratings) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = Count / sum(Count) * 100)
 
-print(plot_stacked_ratings_country)
+plot_pie_ratings <- ggplot(rating_totals, aes(x = "", y = Count, fill = Ratings)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  labs(title = "Overall Distribution of Customer Ratings") +
+  theme_void() +
+  scale_fill_manual(values = c("Low" = "red", "High" = "green")) +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
+            position = position_stack(vjust = 0.5)) +
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"))
+print(plot_pie_ratings)
 
-# i. Total number of ratings per country
+
+# Create a more plotly-friendly version
+plot_pie_ratings_plotly <- plot_ly(rating_totals, 
+                                  labels = ~Ratings, 
+                                  values = ~Count, 
+                                  type = 'pie',
+                                  textinfo = 'label+percent',
+                                  insidetextorientation = 'radial',
+                                  marker = list(colors = c('red', 'green'))) %>%
+  layout(title = list(text = "Overall Distribution of Customer Ratings",
+                     x = 0.5,
+                     y = 0.95,
+                     font = list(size = 16, face = "bold")))
+
+# i.Dot plot for total ratings per country
 rating_count_per_country <- data %>%
   group_by(Country) %>%
-  summarise(Total_Ratings = n())
+  summarise(Total_Ratings = n()) %>%
+  arrange(desc(Total_Ratings))
 
-plot_total_ratings_country <- ggplot(rating_count_per_country, aes(x = Country, y = Total_Ratings, fill = Country)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Total Number of Ratings per Country", y = "Total Ratings") +
+plot_dot_total_ratings <- ggplot(rating_count_per_country, aes(x = Total_Ratings, y = reorder(Country, Total_Ratings))) +
+  geom_point(size = 4, color = "steelblue") +
+  geom_segment(aes(x = 0, xend = Total_Ratings, y = Country, yend = Country), 
+               color = "lightblue", size = 1) +
+  labs(title = "Total Number of Ratings per Country", 
+       x = "Total Ratings", y = "Country") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_viridis_d()
-
-print(plot_total_ratings_country)
+  theme(panel.grid.major.y = element_blank())
+print(plot_dot_total_ratings)
 
 # j. Calculate average rating per country
 avg_country_ratings <- data %>%
   group_by(Country) %>%
   summarise(Average_Rating = mean(Ratings_numeric, na.rm = TRUE))
-
 print(avg_country_ratings)
 
-# k. Violin plot of ratings by country
+# k. Violin plot of ratings by country 
 plot_violin_ratings_country <- ggplot(data, aes(x = Country, y = Ratings_numeric, fill = Country)) +
   geom_violin(trim = FALSE, alpha = 0.7) +
   geom_boxplot(width = 0.1, fill = "white", alpha = 0.5) +
   labs(title = "Distribution of Ratings by Country", y = "Rating Score") +
   theme_minimal() +
   scale_fill_viridis_d()
-
 print(plot_violin_ratings_country)
 
-# l. Visualize average rating per country
-plot_avg_ratings_country <- ggplot(avg_country_ratings, aes(x = Country, y = Average_Rating, fill = Country)) +
-  geom_col() +
-  labs(title = "Average Customer Rating by Country", y = "Average Rating") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_viridis_d()
+# l.Lollipop chart for average ratings by country
+avg_country_ratings_sorted <- avg_country_ratings %>%
+  arrange(desc(Average_Rating))
 
-print(plot_avg_ratings_country)
+plot_lollipop_avg_ratings <- ggplot(avg_country_ratings_sorted, aes(x = Average_Rating, y = reorder(Country, Average_Rating))) +
+  geom_segment(aes(x = 0, xend = Average_Rating, y = Country, yend = Country), 
+               color = "grey", size = 1) +
+  geom_point(size = 4, color = "orange") +
+  labs(title = "Average Customer Rating by Country", 
+       x = "Average Rating", y = "Country") +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank()) +
+  xlim(0, 5)
+print(plot_lollipop_avg_ratings)
+
+# m. Scatter plot showing relationship between total ratings and average ratings
+plot_scatter_count_vs_avg <- ggplot(merge(rating_count_per_country, avg_country_ratings), 
+                                    aes(x = Total_Ratings, y = Average_Rating)) +
+  geom_point(size = 4, alpha = 0.7, color = "darkgreen") +
+  geom_text(aes(label = Country), hjust = -0.1, vjust = 0.5, size = 3) +
+  labs(title = "Relationship between Total Ratings and Average Rating by Country",
+       x = "Total Number of Ratings", y = "Average Rating") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed")
+print(plot_scatter_count_vs_avg)
 
 #==================================================================================
 # Analysis 2: Is there a statistically significant difference in customer 
