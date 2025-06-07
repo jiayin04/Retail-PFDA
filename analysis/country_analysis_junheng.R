@@ -530,19 +530,19 @@ performance_comparison_country <- data.frame(
   Model = c("Logistic Regression", "Random Forest"),
   Accuracy = c(
     round(conf_matrix_logistic_country$overall["Accuracy"], 3),
-    round(conf_matrix_country$overall["Accuracy"], 3)
+    round(conf_matrix_rf_country$overall["Accuracy"], 3)
   ),
   Sensitivity = c(
     round(conf_matrix_logistic_country$byClass["Sensitivity"], 3),
-    round(conf_matrix_country$byClass["Sensitivity"], 3)
+    round(conf_matrix_rf_country$byClass["Sensitivity"], 3)
   ),
   Specificity = c(
     round(conf_matrix_logistic_country$byClass["Specificity"], 3),
-    round(conf_matrix_country$byClass["Specificity"], 3)
+    round(conf_matrix_rf_country$byClass["Specificity"], 3)
   ),
   Precision = c(
     round(conf_matrix_logistic_country$byClass["Pos Pred Value"], 3),
-    round(conf_matrix_country$byClass["Pos Pred Value"], 3)
+    round(conf_matrix_rf_country$byClass["Pos Pred Value"], 3)
   )
 )
 
