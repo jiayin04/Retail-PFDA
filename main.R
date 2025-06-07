@@ -66,3 +66,4 @@ source("analysis/group_predictive_analysis.R")
 ### 7. GUI Display
 ### ─────────────────────────────────────────────
 source("Dashboard.R")
+runApp("Dashboard.R")

@@ -322,64 +322,76 @@ ui <- dashboardPage(
                   tabsetPanel(
                     id = "age_tabs",
                     
-                    # Age Distribution Analysis
-                    tabPanel("Age Distribution",
+                    # Age Descriptive Analysis
+                    tabPanel("Descriptive Analysis",
                              fluidRow(
-                               column(6,
+                               column(12,
                                       box(
-                                        title = "Age vs Total Amount",
+                                        title = "Total Amount and Ratings by Age Group",
                                         status = "info",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(plotlyOutput("age_amount_plot"))
+                                        withSpinner(plotOutput("faceted_boxplot_age"))
                                       )
                                ),
-                               column(6,
-                                      box(
-                                        title = "Age vs Ratings",
-                                        status = "info",
-                                        solidHeader = TRUE,
-                                        width = 12,
-                                        withSpinner(plotlyOutput("age_ratings_plot"))
-                                      )
-                               )
                              ),
                              fluidRow(
                                column(12,
                                       box(
-                                        title = "Age Group Analysis",
+                                        title = "Avg Total Amount Spent by Gender, Income, Ratings and Age Group",
                                         status = "success",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(plotlyOutput("age_group_plot"))
+                                        withSpinner(plotOutput("age_adds_heatmap"))
                                       )
                                )
                              ),
                              
                     ),
                     
-                    # Age-Based Customer Profiling
-                    tabPanel("Customer Profiling",
+                    # Age Predictive Profiling
+                    tabPanel("Predictive Analysis",
                              fluidRow(
-                               column(12,
+                               column(6,
                                       box(
-                                        title = "Age-Based Clusters",
+                                        title = "ROC Curve - Logistic (Age Only)",
                                         status = "warning",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(plotlyOutput("age_cluster_plot"))
+                                        withSpinner(plotOutput("roc_log_age"))
                                       )
                                ),
-                               column(7,
+                               column(6,
                                       box(
-                                        title = "Cluster Summary",
-                                        status = "warning",
+                                        title = "ROC Curve – Random Forest (Age Only)",
+                                        status = "success",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(DT::dataTableOutput("age_cluster_summary"))
+                                        withSpinner(plotOutput("roc_rf_age"))
+                                      )
+                               ),
+                             ),
+                             fluidRow(
+                               column(6,
+                                      box(
+                                        title = "ROC Curve – Logistic Regression",
+                                        status = "info",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("roc_log_age_add"))
+                                      )
+                               ),
+                               column(6,
+                                      box(
+                                        title = "Random Forest Variable Importance",
+                                        status = "primary",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("var_imp_rf_age"))
                                       )
                                )
-                             )
+                             ),
+                             
                     )
                   )
                 )
@@ -872,122 +884,168 @@ server <- function(input, output, session) {
   
   ################# Age ################
   
-  # Age Analysis Outputs
-  output$age_amount_plot <- renderPlotly({
-    age_data <- data %>%
-      group_by(Age_Group) %>%
-      summarise(
-        Avg_Amount = mean(Total_Amount),
-        Count = n()
-      )
-    
-    p <- ggplot(age_data, aes(x = Age_Group, y = Avg_Amount, fill = Age_Group)) +
-      geom_col() +
-      labs(
-        title = "Average Spending by Age Group",
-        x = "Age Group",
-        y = "Average Total Amount"
-      ) +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    
-    ggplotly(p)
-  })
-  
-  output$age_ratings_plot <- renderPlotly({
-    p <- ggplot(data, aes(x = Age_Group, y = Ratings_numeric, fill = Ratings)) +
+  # Faceted Boxplot
+  output$faceted_boxplot_age <- renderPlot({
+    ggplot(age_data, aes(x = Age_Group, y = Value, fill = Measure)) +
       geom_boxplot() +
+      facet_wrap(~ Measure, scales = "free_y") +
       labs(
-        title = "Ratings Distribution by Age Group",
-        x = "Age Group",
-        y = "Rating"
+        title = "Total Amount and Ratings by Age Group",
+        x     = "Age Group",
+        y     = "Value"
       )
-    
-    ggplotly(p)
   })
   
-  output$age_group_plot <- renderPlotly({
-    p <- ggplot(data, aes(x = Age_Group, y = Total_Amount, fill = Ratings)) +
-      geom_violin(position = "dodge", trim = FALSE) +
+  output$age_adds_heatmap <- renderPlot({
+    ggplot(heatmap_data, aes(x = Income, y = Gender, fill = avg_total)) +
+      geom_tile() +
+      facet_grid(Ratings ~ Age_Group) +
+      scale_fill_gradient(low = "lightblue", high = "darkblue") +
       labs(
-        title = "Spending Distribution by Ratings across Age Groups",
-        x = "Age Group",
-        y = "Total Amount Spent"
-      )
-    
-    ggplotly(p)
+        title = "Avg Total Amount spent by Gender, Income, Ratings, and Age Group",
+        fill  = "Avg Amount (RM)"
+      ) +
+      theme_minimal()
+  }) 
+  
+  output$roc_log_age <- renderPlot({
+    pROC::plot.roc(roc_age_log, main = "ROC Curve – Logistic (Age Only)",
+                   legacy.axes = TRUE,
+                   xlab = "Specificity")
   })
   
-  output$age_cluster_plot <- renderPlotly({
-    # Prepare data for clustering and plotting
-    data_with_ratings <- data %>%
-      mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0))
-    
-    # Prepare matrix for clustering
-    cluster_matrix <- as.matrix(dplyr::select(as.data.frame(data_with_ratings), Age, Ratings_numeric))
-    cluster_matrix <- scale(cluster_matrix)
-    
-    # Perform k-means clustering
-    set.seed(123)
-    kmeans_result <- kmeans(cluster_matrix, centers = 3)
-    
-    # Add cluster labels to the data frame
-    data_with_ratings <- data_with_ratings %>%
-      mutate(Cluster = factor(kmeans_result$cluster))
-    
-    # Calculate centroids
-    centroids <- data_with_ratings %>%
-      group_by(Cluster) %>%
-      summarise(Age = mean(Age), Ratings = mean(Ratings_numeric))
-    
-    p <- ggplot(data_with_ratings, aes(x = Age, y = Ratings_numeric, color = Cluster)) +
-      geom_point(alpha = 0.6, size = 2) +
-      geom_point(data = centroids, aes(x = Age, y = Ratings),
-                 color = "black", shape = 4, size = 4, stroke = 2, inherit.aes = FALSE) +
-      geom_text(data = centroids, aes(x = Age, y = Ratings, label = paste("Cluster", Cluster)),
-                vjust = -1, color = "black", size = 4, inherit.aes = FALSE) +
-      labs(title = "Customer Profiling Based on Age and Ratings",
-           x = "Age",
-           y = "Ratings (High = 1, Low = 0)",
-           color = "Cluster") +
-      theme_minimal() +
-      scale_color_brewer(palette = "Set1")
-    
-    ggplotly(p)
+  output$roc_rf_age <- renderPlot({
+    pROC::plot.roc(roc_age_rf, main = "ROC Curve – Random Forest (Age Only)",
+                   legacy.axes = TRUE,
+                   xlab = "Specificity")
   })
   
-  output$age_cluster_summary <- DT::renderDataTable({
-    # Prepare data for clustering and summary
-    data_with_ratings <- data %>%
-      mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0))
-    
-    cluster_matrix <- as.matrix(dplyr::select(as.data.frame(data_with_ratings), Age, Ratings_numeric, Total_Amount))
-    cluster_matrix <- scale(cluster_matrix)
-    
-    # Perform k-means clustering
-    set.seed(123)
-    kmeans_result <- kmeans(cluster_matrix, centers = 3)
-    
-    # Add cluster labels to a new data frame
-    data_with_ratings <- data_with_ratings %>%
-      mutate(Cluster = factor(kmeans_result$cluster))
-    
-    # Create cluster summary
-    cluster_summary <- data_with_ratings %>%
-      group_by(Cluster) %>%
-      summarise(
-        Avg_Age = mean(Age),
-        Avg_Amount = mean(Total_Amount),
-        Avg_Rating = mean(Ratings_numeric),
-        Count = n(),
-        .groups = "drop"
-      )
-    
-    DT::datatable(cluster_summary,
-                  options = list(pageLength = 5, dom = 't'),
-                  caption = "Age-Based Cluster Summary")
+  output$roc_log_age_add <- renderPlot({
+    pROC::plot.roc(roc_full_log, main = "ROC Curve – Logistic Regression",
+                   legacy.axes = TRUE,
+                   xlab = "Specificity")
   })
   
+  output$var_imp_rf_age <- renderPlot({
+    varImpPlot(rf_full_model)
+  })
+  
+  # # Age Analysis Outputs
+  # output$age_amount_plot <- renderPlotly({
+  #   age_data <- data %>%
+  #     group_by(Age_Group) %>%
+  #     summarise(
+  #       Avg_Amount = mean(Total_Amount),
+  #       Count = n()
+  #     )
+  #   
+  #   p <- ggplot(age_data, aes(x = Age_Group, y = Avg_Amount, fill = Age_Group)) +
+  #     geom_col() +
+  #     labs(
+  #       title = "Average Spending by Age Group",
+  #       x = "Age Group",
+  #       y = "Average Total Amount"
+  #     ) +
+  #     theme_minimal() +
+  #     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #   
+  #   ggplotly(p)
+  # })
+  # 
+  # output$age_ratings_plot <- renderPlotly({
+  #   p <- ggplot(data, aes(x = Age_Group, y = Ratings_numeric, fill = Ratings)) +
+  #     geom_boxplot() +
+  #     labs(
+  #       title = "Ratings Distribution by Age Group",
+  #       x = "Age Group",
+  #       y = "Rating"
+  #     )
+  #   
+  #   ggplotly(p)
+  # })
+  # 
+  # output$age_group_plot <- renderPlotly({
+  #   p <- ggplot(data, aes(x = Age_Group, y = Total_Amount, fill = Ratings)) +
+  #     geom_violin(position = "dodge", trim = FALSE) +
+  #     labs(
+  #       title = "Spending Distribution by Ratings across Age Groups",
+  #       x = "Age Group",
+  #       y = "Total Amount Spent"
+  #     )
+  #   
+  #   ggplotly(p)
+  # })
+  # 
+  # output$age_cluster_plot <- renderPlotly({
+  #   # Prepare data for clustering and plotting
+  #   data_with_ratings <- data %>%
+  #     mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0))
+  #   
+  #   # Prepare matrix for clustering
+  #   cluster_matrix <- as.matrix(dplyr::select(as.data.frame(data_with_ratings), Age, Ratings_numeric))
+  #   cluster_matrix <- scale(cluster_matrix)
+  #   
+  #   # Perform k-means clustering
+  #   set.seed(123)
+  #   kmeans_result <- kmeans(cluster_matrix, centers = 3)
+  #   
+  #   # Add cluster labels to the data frame
+  #   data_with_ratings <- data_with_ratings %>%
+  #     mutate(Cluster = factor(kmeans_result$cluster))
+  #   
+  #   # Calculate centroids
+  #   centroids <- data_with_ratings %>%
+  #     group_by(Cluster) %>%
+  #     summarise(Age = mean(Age), Ratings = mean(Ratings_numeric))
+  #   
+  #   p <- ggplot(data_with_ratings, aes(x = Age, y = Ratings_numeric, color = Cluster)) +
+  #     geom_point(alpha = 0.6, size = 2) +
+  #     geom_point(data = centroids, aes(x = Age, y = Ratings),
+  #                color = "black", shape = 4, size = 4, stroke = 2, inherit.aes = FALSE) +
+  #     geom_text(data = centroids, aes(x = Age, y = Ratings, label = paste("Cluster", Cluster)),
+  #               vjust = -1, color = "black", size = 4, inherit.aes = FALSE) +
+  #     labs(title = "Customer Profiling Based on Age and Ratings",
+  #          x = "Age",
+  #          y = "Ratings (High = 1, Low = 0)",
+  #          color = "Cluster") +
+  #     theme_minimal() +
+  #     scale_color_brewer(palette = "Set1")
+  #   
+  #   ggplotly(p)
+  # })
+  # 
+  # output$age_cluster_summary <- DT::renderDataTable({
+  #   # Prepare data for clustering and summary
+  #   data_with_ratings <- data %>%
+  #     mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0))
+  #   
+  #   cluster_matrix <- as.matrix(dplyr::select(as.data.frame(data_with_ratings), Age, Ratings_numeric, Total_Amount))
+  #   cluster_matrix <- scale(cluster_matrix)
+  #   
+  #   # Perform k-means clustering
+  #   set.seed(123)
+  #   kmeans_result <- kmeans(cluster_matrix, centers = 3)
+  #   
+  #   # Add cluster labels to a new data frame
+  #   data_with_ratings <- data_with_ratings %>%
+  #     mutate(Cluster = factor(kmeans_result$cluster))
+  #   
+  #   # Create cluster summary
+  #   cluster_summary <- data_with_ratings %>%
+  #     group_by(Cluster) %>%
+  #     summarise(
+  #       Avg_Age = mean(Age),
+  #       Avg_Amount = mean(Total_Amount),
+  #       Avg_Rating = mean(Ratings_numeric),
+  #       Count = n(),
+  #       .groups = "drop"
+  #     )
+  #   
+  #   DT::datatable(cluster_summary,
+  #                 options = list(pageLength = 5, dom = 't'),
+  #                 caption = "Age-Based Cluster Summary")
+  # })
+  # 
 
   ################PRODUCT########################  
   
@@ -1054,8 +1112,10 @@ server <- function(input, output, session) {
   
   # ROC Plot
   output$rf_roc_plot <- renderPlot({
-    plot(imbalanced_results$rf$roc, col = "blue",
-         main = "Random Forest ROC Curve (Balanced vs Imbalanced)")
+    pROC::plot.roc(imbalanced_results$rf$roc, col = "blue",
+                   main = "Random Forest ROC Curve (Balanced vs Imbalanced)",
+                   legacy.axes = TRUE,
+                   xlab = "Specificity")
     lines(balanced_results$rf$roc, col = "red", lty = 2, lwd = 2)
     text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$rf$roc), 4)), col="black")
     text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$rf$roc), 4)), col="black")
@@ -1066,21 +1126,26 @@ server <- function(input, output, session) {
            lwd = 2)
     
   })
+
+  output$xgb_roc_plot <- renderPlot({
+    pROC::plot.roc(imbalanced_results$xgb$roc, col = "blue",
+                   main = "XGBoost ROC Curve (Balanced vs Imbalanced)",
+                   legacy.axes = TRUE,
+                   xlab = "Specificity")
+    lines(balanced_results$xgb$roc, col = "red", lty = 2, lwd = 2)
+    text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$xgb$roc), 4)), col="black")
+    text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$xgb$roc), 4)), col="black")
+    legend("bottomright",
+           legend = c("XGB Imbalanced", "XGB Balanced"),
+           col = c("blue", "red"),
+           lty = c(1, 2),
+           lwd = 2)
+  })
   
+  # Var Importance plot
   output$product_feature_importance <- renderPlot({
     combined_imp_plot
   })
-  
-  output$xgb_roc_plot <- renderPlot({
-    plot(imbalanced_results$xgb$roc, col = "blue",
-         main = "XGBoost ROC Curve (Balanced vs Imbalanced)")
-    lines(balanced_results$xgb$roc, col = "red", lty = 2, lwd = 2)
-    text(0.7, 0.2, paste("Imbalanced AUC =", round(auc(imbalanced_results$xgb$roc), 4)), col="black")
-    text(0.65, 0.65, paste("Balanced AUC =", round(auc(balanced_results$xgb$roc), 4)), col="black")
-    legend("bottomright", legend = c("XGB Imbalanced", "XGB Balanced"),
-           col = c("blue", "red"), lty = c(1, 2), lwd = 2)
-  })
-  
   
   
   # Product-based clustering
