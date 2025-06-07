@@ -390,8 +390,68 @@ ui <- dashboardPage(
                                         withSpinner(plotOutput("var_imp_rf_age"))
                                       )
                                )
+                             )
+                    ),
+                    
+                    # Unsupervised Analysis Tab
+                    tabPanel("Unsupervised Analysis",
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "Customer Profiling Based on Age and Ratings",
+                                        status = "primary",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("plot_customer_profiling"))
+                                      )
+                               )
                              ),
-                             
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "Customer Profile Radar Chart",
+                                        status = "success",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("radar_plot"))
+                                      )
+                               )
+                             )
+                    ),
+                    
+                    # Prescriptive Analysis Tab
+                    tabPanel("Prescriptive Analysis",
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "Density Plot: Total Amount by Ratings and Age Group",
+                                        status = "primary",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("age_density_plot"))
+                                      )
+                               )
+                             ),
+                             fluidRow(
+                               column(6,
+                                      box(
+                                        title = "Income vs Ratings Mosaic Plot",
+                                        status = "success",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("income_ratings_mosaic"))
+                                      )
+                               ),
+                               column(6,
+                                      box(
+                                        title = "Customer Segment vs Ratings Mosaic Plot",
+                                        status = "success",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("segment_ratings_mosaic"))
+                                      )
+                               )
+                             )
                     )
                   )
                 )
@@ -930,122 +990,6 @@ server <- function(input, output, session) {
     varImpPlot(rf_full_model)
   })
   
-  # # Age Analysis Outputs
-  # output$age_amount_plot <- renderPlotly({
-  #   age_data <- data %>%
-  #     group_by(Age_Group) %>%
-  #     summarise(
-  #       Avg_Amount = mean(Total_Amount),
-  #       Count = n()
-  #     )
-  #   
-  #   p <- ggplot(age_data, aes(x = Age_Group, y = Avg_Amount, fill = Age_Group)) +
-  #     geom_col() +
-  #     labs(
-  #       title = "Average Spending by Age Group",
-  #       x = "Age Group",
-  #       y = "Average Total Amount"
-  #     ) +
-  #     theme_minimal() +
-  #     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  #   
-  #   ggplotly(p)
-  # })
-  # 
-  # output$age_ratings_plot <- renderPlotly({
-  #   p <- ggplot(data, aes(x = Age_Group, y = Ratings_numeric, fill = Ratings)) +
-  #     geom_boxplot() +
-  #     labs(
-  #       title = "Ratings Distribution by Age Group",
-  #       x = "Age Group",
-  #       y = "Rating"
-  #     )
-  #   
-  #   ggplotly(p)
-  # })
-  # 
-  # output$age_group_plot <- renderPlotly({
-  #   p <- ggplot(data, aes(x = Age_Group, y = Total_Amount, fill = Ratings)) +
-  #     geom_violin(position = "dodge", trim = FALSE) +
-  #     labs(
-  #       title = "Spending Distribution by Ratings across Age Groups",
-  #       x = "Age Group",
-  #       y = "Total Amount Spent"
-  #     )
-  #   
-  #   ggplotly(p)
-  # })
-  # 
-  # output$age_cluster_plot <- renderPlotly({
-  #   # Prepare data for clustering and plotting
-  #   data_with_ratings <- data %>%
-  #     mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0))
-  #   
-  #   # Prepare matrix for clustering
-  #   cluster_matrix <- as.matrix(dplyr::select(as.data.frame(data_with_ratings), Age, Ratings_numeric))
-  #   cluster_matrix <- scale(cluster_matrix)
-  #   
-  #   # Perform k-means clustering
-  #   set.seed(123)
-  #   kmeans_result <- kmeans(cluster_matrix, centers = 3)
-  #   
-  #   # Add cluster labels to the data frame
-  #   data_with_ratings <- data_with_ratings %>%
-  #     mutate(Cluster = factor(kmeans_result$cluster))
-  #   
-  #   # Calculate centroids
-  #   centroids <- data_with_ratings %>%
-  #     group_by(Cluster) %>%
-  #     summarise(Age = mean(Age), Ratings = mean(Ratings_numeric))
-  #   
-  #   p <- ggplot(data_with_ratings, aes(x = Age, y = Ratings_numeric, color = Cluster)) +
-  #     geom_point(alpha = 0.6, size = 2) +
-  #     geom_point(data = centroids, aes(x = Age, y = Ratings),
-  #                color = "black", shape = 4, size = 4, stroke = 2, inherit.aes = FALSE) +
-  #     geom_text(data = centroids, aes(x = Age, y = Ratings, label = paste("Cluster", Cluster)),
-  #               vjust = -1, color = "black", size = 4, inherit.aes = FALSE) +
-  #     labs(title = "Customer Profiling Based on Age and Ratings",
-  #          x = "Age",
-  #          y = "Ratings (High = 1, Low = 0)",
-  #          color = "Cluster") +
-  #     theme_minimal() +
-  #     scale_color_brewer(palette = "Set1")
-  #   
-  #   ggplotly(p)
-  # })
-  # 
-  # output$age_cluster_summary <- DT::renderDataTable({
-  #   # Prepare data for clustering and summary
-  #   data_with_ratings <- data %>%
-  #     mutate(Ratings_numeric = ifelse(Ratings == "High", 1, 0))
-  #   
-  #   cluster_matrix <- as.matrix(dplyr::select(as.data.frame(data_with_ratings), Age, Ratings_numeric, Total_Amount))
-  #   cluster_matrix <- scale(cluster_matrix)
-  #   
-  #   # Perform k-means clustering
-  #   set.seed(123)
-  #   kmeans_result <- kmeans(cluster_matrix, centers = 3)
-  #   
-  #   # Add cluster labels to a new data frame
-  #   data_with_ratings <- data_with_ratings %>%
-  #     mutate(Cluster = factor(kmeans_result$cluster))
-  #   
-  #   # Create cluster summary
-  #   cluster_summary <- data_with_ratings %>%
-  #     group_by(Cluster) %>%
-  #     summarise(
-  #       Avg_Age = mean(Age),
-  #       Avg_Amount = mean(Total_Amount),
-  #       Avg_Rating = mean(Ratings_numeric),
-  #       Count = n(),
-  #       .groups = "drop"
-  #     )
-  #   
-  #   DT::datatable(cluster_summary,
-  #                 options = list(pageLength = 5, dom = 't'),
-  #                 caption = "Age-Based Cluster Summary")
-  # })
-  # 
 
   ################PRODUCT########################  
   
@@ -1182,6 +1126,49 @@ server <- function(input, output, session) {
     abline(v=0, col="black", lwd= 1)
   })
   
+  # Unsupervised Analysis Outputs
+  output$plot_customer_profiling <- renderPlot({
+    plot_customer_profiling
+  })
+  
+  output$radar_plot <- renderPlot({
+    radarchart(radar_data,
+               axistype = 1,
+               pcol = colors_border,
+               plwd = 2,
+               plty = 1,
+               cglcol = "grey", 
+               cglty = 1, 
+               axislabcol = "grey", 
+               caxislabels = seq(-2,2,1), 
+               cglwd = 0.8,
+               vlcex = 0.8,
+               title = "Customer Profile per Cluster (Sampled Data - 10000)")
+    
+    # Add legend
+    legend(x = "topright", 
+           legend = c("Cluster 1", "Cluster 2", "Cluster 3"),
+           bty = "n", 
+           pch=20, 
+           col=colors_border, 
+           text.col = "black", 
+           cex=0.8)
+  })
+  
+  # Prescriptive Analysis Outputs
+  output$age_density_plot <- renderPlot({
+    plot_density_age_group
+  })
+  
+  output$income_ratings_mosaic <- renderPlot({
+    mosaic(~ Income + Ratings, data = data, shade = TRUE, 
+           main = "Income vs Ratings")
+  })
+  
+  output$segment_ratings_mosaic <- renderPlot({
+    mosaic(~ Customer_Segment + Ratings, data = data, shade = TRUE, 
+           main = "Customer Segment vs Ratings")
+  })
 }
 
 # Run the application

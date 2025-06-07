@@ -266,7 +266,7 @@ centroids <- profile_data %>%
   summarise(Age = mean(Age), Ratings = mean(Ratings))
 
 # Plot
-ggplot(profile_data, aes(x = Age, y = Ratings, color = Cluster)) +
+plot_customer_profiling <- ggplot(profile_data, aes(x = Age, y = Ratings, color = Cluster)) +
   geom_point(alpha = 0.6, size = 2) +
   geom_point(data = centroids, aes(x = Age, y = Ratings),
              color = "black", shape = 4, size = 4, stroke = 2) +  # centroids as X
@@ -279,7 +279,7 @@ ggplot(profile_data, aes(x = Age, y = Ratings, color = Cluster)) +
   theme_minimal() +
   scale_color_brewer(palette = "Set1")
 
-
+print(plot_customer_profiling)
 
 ############################ Extra features for Analysis 3
 
@@ -379,7 +379,7 @@ ggplot(retail_data_proc_temp, aes(x = Age_Group, y = Total_Amount, fill = Rating
   theme_minimal()
 
 # Density Plot: Total Amount Distribution by Ratings per Age Group
-ggplot(retail_data_proc_temp, aes(x = Total_Amount, fill = Ratings)) +
+plot_density_age_group <- ggplot(retail_data_proc_temp, aes(x = Total_Amount, fill = Ratings)) +
   geom_density(alpha = 0.5) +
   facet_wrap(~Age_Group) +
   labs(
@@ -387,6 +387,8 @@ ggplot(retail_data_proc_temp, aes(x = Total_Amount, fill = Ratings)) +
     x = "Total Amount Spent"
   ) +
   theme_minimal()
+
+print(plot_density_age_group)
 
 ################################# Extra features for Analysis 4
 
