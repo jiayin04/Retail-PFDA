@@ -18,6 +18,7 @@ library(factoextra)
 library(NbClust)
 library(fmsb)
 library(purrr)
+library(vcd)
 
 # Define UI
 ui <- dashboardPage(
