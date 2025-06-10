@@ -969,21 +969,15 @@ server <- function(input, output, session) {
   }) 
   
   output$roc_log_age <- renderPlot({
-    pROC::plot.roc(roc_age_log, main = "ROC Curve – Logistic (Age Only)",
-                   legacy.axes = TRUE,
-                   xlab = "Specificity")
+    pROC::plot.roc(roc_age_log, main = "ROC Curve – Logistic (Age Only)")
   })
   
   output$roc_rf_age <- renderPlot({
-    pROC::plot.roc(roc_age_rf, main = "ROC Curve – Random Forest (Age Only)",
-                   legacy.axes = TRUE,
-                   xlab = "Specificity")
+    pROC::plot.roc(roc_age_rf, main = "ROC Curve – Random Forest (Age Only)")
   })
   
   output$roc_log_age_add <- renderPlot({
-    pROC::plot.roc(roc_full_log, main = "ROC Curve – Logistic Regression",
-                   legacy.axes = TRUE,
-                   xlab = "Specificity")
+    pROC::plot.roc(roc_full_log, main = "ROC Curve – Logistic Regression")
   })
   
   output$var_imp_rf_age <- renderPlot({
@@ -1057,9 +1051,7 @@ server <- function(input, output, session) {
   # ROC Plot
   output$rf_roc_plot <- renderPlot({
     pROC::plot.roc(imbalanced_results$rf$roc, col = "blue",
-                   main = "Random Forest ROC Curve (Balanced vs Imbalanced)",
-                   legacy.axes = TRUE,
-                   xlab = "Specificity")
+                   main = "Random Forest ROC Curve (Balanced vs Imbalanced)")
     lines(balanced_results$rf$roc, col = "red", lty = 2, lwd = 2)
     text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$rf$roc), 4)), col="black")
     text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$rf$roc), 4)), col="black")
@@ -1073,9 +1065,7 @@ server <- function(input, output, session) {
 
   output$xgb_roc_plot <- renderPlot({
     pROC::plot.roc(imbalanced_results$xgb$roc, col = "blue",
-                   main = "XGBoost ROC Curve (Balanced vs Imbalanced)",
-                   legacy.axes = TRUE,
-                   xlab = "Specificity")
+                   main = "XGBoost ROC Curve (Balanced vs Imbalanced)")
     lines(balanced_results$xgb$roc, col = "red", lty = 2, lwd = 2)
     text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$xgb$roc), 4)), col="black")
     text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$xgb$roc), 4)), col="black")

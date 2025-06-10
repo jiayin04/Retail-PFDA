@@ -341,8 +341,7 @@ library(ggplot2)
 # Step 5: Visualize ROC values
 # [Random Forest ROC plot]
 pROC::plot.roc(imbalanced_results$rf$roc, col = "blue",
-     main = "Random Forest ROC Curve (Balanced vs Imbalanced)",
-     legacy.axes = TRUE)
+     main = "Random Forest ROC Curve (Balanced vs Imbalanced)")
 lines(balanced_results$rf$roc, col = "red", lty = 2, lwd = 2)
 text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$rf$roc), 4)), col="black")
 text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$rf$roc), 4)), col="black")
@@ -354,8 +353,7 @@ legend("bottomright",
 
 # [XGBoost ROC plot]
 pROC::plot.roc(imbalanced_results$xgb$roc, col = "blue",
-     main = "XGBoost ROC Curve (Balanced vs Imbalanced)",
-     legacy.axes = TRUE)
+     main = "XGBoost ROC Curve (Balanced vs Imbalanced)")
 lines(balanced_results$xgb$roc, col = "red", lty = 2, lwd = 2)
 text(0.7, 0.2, paste("Imbalanced AUC = ", round(auc(imbalanced_results$xgb$roc), 4)), col="black")
 text(0.65, 0.65, paste("Balanced AUC = ", round(auc(balanced_results$xgb$roc), 4)), col="black")
