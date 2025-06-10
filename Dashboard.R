@@ -35,7 +35,7 @@ ui <- dashboardPage(
                tabName = "product_analysis", 
                icon = icon("shopping-cart")),
       menuItem("Transaction Logistics Analysis", 
-               tabName = "analysis3", 
+               tabName = "transaction_logistics_analysis", 
                icon = icon("chart-pie"))
     )
   ),
@@ -661,8 +661,8 @@ ui <- dashboardPage(
               )
       ),
       
-      # Teammate Analysis 3 Tab
-      tabItem(tabName = "analysis3",
+      # Transaction Logistics Analysis
+      tabItem(tabName = "transaction_logistics_analysis",
               fluidRow(
                 box(
                   title = "Transaction Logistics Analysis", 
@@ -1004,6 +1004,51 @@ server <- function(input, output, session) {
     varImpPlot(rf_full_model)
   })
   
+    
+  # Unsupervised Analysis Outputs
+  output$plot_customer_profiling <- renderPlot({
+    plot_customer_profiling
+  })
+  
+  output$radar_plot <- renderPlot({
+    radarchart(radar_data,
+               axistype = 1,
+               pcol = colors_border,
+               plwd = 2,
+               plty = 1,
+               cglcol = "grey", 
+               cglty = 1, 
+               axislabcol = "grey", 
+               caxislabels = seq(-2,2,1), 
+               cglwd = 0.8,
+               vlcex = 0.8,
+               title = "Customer Profile per Cluster (Sampled Data - 10000)")
+    
+    # Add legend
+    legend(x = "topright", 
+           legend = c("Cluster 1", "Cluster 2", "Cluster 3"),
+           bty = "n", 
+           pch=20, 
+           col=colors_border, 
+           text.col = "black", 
+           cex=0.8)
+  })
+  
+  # Prescriptive Analysis Outputs
+  output$age_density_plot <- renderPlot({
+    plot_density_age_group
+  })
+  
+  output$income_ratings_mosaic <- renderPlot({
+    mosaic(~ Income + Ratings, data = data, shade = TRUE, 
+           main = "Income vs Ratings")
+  })
+  
+  output$segment_ratings_mosaic <- renderPlot({
+    mosaic(~ Customer_Segment + Ratings, data = data, shade = TRUE, 
+           main = "Customer Segment vs Ratings")
+  })
+  
 
   ################PRODUCT########################  
   
@@ -1135,52 +1180,9 @@ server <- function(input, output, session) {
     
     abline(v=0, col="black", lwd= 1)
   })
+
   
-  # Unsupervised Analysis Outputs
-  output$plot_customer_profiling <- renderPlot({
-    plot_customer_profiling
-  })
-  
-  output$radar_plot <- renderPlot({
-    radarchart(radar_data,
-               axistype = 1,
-               pcol = colors_border,
-               plwd = 2,
-               plty = 1,
-               cglcol = "grey", 
-               cglty = 1, 
-               axislabcol = "grey", 
-               caxislabels = seq(-2,2,1), 
-               cglwd = 0.8,
-               vlcex = 0.8,
-               title = "Customer Profile per Cluster (Sampled Data - 10000)")
-    
-    # Add legend
-    legend(x = "topright", 
-           legend = c("Cluster 1", "Cluster 2", "Cluster 3"),
-           bty = "n", 
-           pch=20, 
-           col=colors_border, 
-           text.col = "black", 
-           cex=0.8)
-  })
-  
-  # Prescriptive Analysis Outputs
-  output$age_density_plot <- renderPlot({
-    plot_density_age_group
-  })
-  
-  output$income_ratings_mosaic <- renderPlot({
-    mosaic(~ Income + Ratings, data = data, shade = TRUE, 
-           main = "Income vs Ratings")
-  })
-  
-  output$segment_ratings_mosaic <- renderPlot({
-    mosaic(~ Customer_Segment + Ratings, data = data, shade = TRUE, 
-           main = "Customer Segment vs Ratings")
-  })
-  
-  # Transaction Logistics Analysis Outputs
+  ################# Transaction Logistics ##############
   output$payment_shipping_facet_heatmap <- renderPlot({
     payment_shipping_facet_heatmap_plot
   })
