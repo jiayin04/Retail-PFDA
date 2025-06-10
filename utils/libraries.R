@@ -8,7 +8,7 @@ required_packages <- c(
   "lubridate", "hms", "readr", "car", "MetBrewer", "patchwork",
   "reshape2", "caret", "randomForest", "xgboost", "pROC",
   "plotly", "dendextend", "viridis", "purrr", "cluster", "factoextra", "NbClust", "fmsb",
-  "vcd", "broom", "forcats", "arm", "RColorBrewer", "scales", "nnet",
+  "arules", "scales", "vcd", "RColorBrewer",
   "shiny", "shinydashboard", "DT", "shinycssloaders", "tidyverse", "conflicted"
 )
 
@@ -47,19 +47,15 @@ library(gender)       # Predict gender from first names
 
 # ─── Statistical Analysis ───
 library(car)          # Companion to Applied Regression (e.g., MANOVA)
-library(broom)        # Convert model objects to tidy data
-library(arm)          # Bayesian analysis and regression modeling
 
 # ─── Functional Programming ───
 library(purrr)        # Apply functions across lists/collections (e.g., map, reduce)
-library(forcats)      # Tools for working with factors
 
 # ─── Machine Learning ───
 library(caret)        # Training/testing splits, preprocessing, evaluation
 library(randomForest) # Random Forest model
 library(xgboost)      # Gradient boosting classifier
 library(pROC)         # AUC and ROC curve analysis
-library(nnet)         # Neural networks and multinomial models
 
 # ─── Visualization ───
 library(ggplot2)      # Standard plotting library
@@ -96,3 +92,4 @@ conflicts_prefer(pROC::roc)
 conflicts_prefer(shinydashboard::box)
 conflicts_prefer(shiny::dataTableOutput)
 conflicts_prefer(shiny::renderDataTable)
+conflicts_prefer(dplyr::filter)

@@ -1,303 +1,377 @@
-#### ANALYSIS STARTS HERE!!!
+library(tidyr)
+library(dplyr)
+library(scales)
+library(ggplot2)
+library(caret)
+library(pROC)
+library(xgboost)
+library(arules)
+library(purrr)
+library(reshape2)
+library(cluster)
+library(dendextend)
+library(factoextra)
 
-library(broom)        
-library(forcats)     
-library(arm)         
-library(RColorBrewer)
-library(scales)  
-library(nnet) 
+### Analysis 2 - 1: How does customer Payment Method and Shipping Method affect customer satisfaction levels and total amount?
+## Section 1: IVs x Ratings
+# Create plot data
+payment_shipping_interception_plot_data <- retail_data_proc %>%
+  group_by(Payment_Method, Shipping_Method, Ratings) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(Payment_Method, Shipping_Method) %>%
+  mutate(prop_high = count / sum(count)) %>%
+  filter(Ratings == "High")
 
-### Analysis 2 - 1: How does customer Age and Country affect customer satisfaction levels and product category choice?
+# Print the data
+print(payment_shipping_interception_plot_data)
 
-## Show relationship between Age_Group, Country, Product Category
-## Data preparation
-# Step 1: Convert Age into ordered categorical variable
-plot_data <- retail_data_proc %>%
-  mutate(Age_Group = case_when(
-    Age >= 18 & Age <= 25 ~ "18-25",
-    Age >= 26 & Age <= 35 ~ "26-35",
-    Age >= 36 & Age <= 45 ~ "36-45",
-    Age >= 46 & Age <= 55 ~ "46-55",
-    Age >= 56             ~ "56+",
-    TRUE                  ~ NA_character_  # for missing or out-of-range values
-  )) %>%
-  mutate(Age_Group = factor(Age_Group, levels = c("18-25", "26-35", "36-45", "46-55", "56+"), ordered = TRUE))
-
-# Step 2: Add a new Column that contains 'Rating' in binary value
-plot_data <- plot_data %>%
-  mutate(Ratings_Num = ifelse(Ratings == "High", 1, 0))
-
-## Plotting for raw amount (Country age)
-# Step 1: Summarize user counts
-heatmap_data <- plot_data %>%
-  filter(!is.na(Country) & !is.na(Age_Group)) %>%
-  group_by(Country, Age_Group) %>%
-  summarise(User_Count = n(), .groups = "drop")
-
-
-# Step 2: Plot the heatmap
-ggplot(heatmap_data, aes(x = Country, y = Age_Group, fill = User_Count)) +
-  geom_tile(color = "white") +
-  geom_text(aes(label = User_Count), color = "black", size = 3) +
-  scale_fill_gradient(low = "#d1e5f0", high = "#2166ac") +
+# Plot
+payment_shipping_interception_plot <- ggplot(payment_shipping_interception_plot_data, aes(x = Payment_Method, y = prop_high, group = Shipping_Method, color = Shipping_Method)) +
+  geom_point(size = 4) +
+  geom_line(linewidth = 1.2) +
   labs(
-    title = "Heatmap of User Count by Country and Age Group",
-    x = "Country",
-    y = "Age Group",
-    fill = "User Count"
+    title = "Customer Satisfaction by Payment and Shipping Method",
+    x = "Payment Method",
+    y = "% of High Ratings",
+    color = "Shipping Method"
   ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  theme_minimal()
+print(payment_shipping_interception_plot)
 
-## Plotting for (Country age ratings)
-ratings_summary <- plot_data %>%
-  group_by(Country, Age_Group) %>%
+
+## Section 2: IVs x Total Amount (Purchasing Behavior)
+# Create plot-specific Total_Amount without mutating retail_data_proc
+payment_shipping_dot_plot_data <- retail_data_proc %>%
+  mutate(Total_Amount = Purchase_Quantity * Amount) %>%
+  group_by(Payment_Method, Shipping_Method) %>%
+  summarise(mean_total = mean(Total_Amount, na.rm = TRUE), .groups = 'drop')
+
+# Print the summarized plot data
+print(payment_shipping_dot_plot_data)
+
+# Plot with red–green color gradient
+payment_shipping_dot_plot <- ggplot(payment_shipping_dot_plot_data, aes(x = Payment_Method, y = Shipping_Method)) +
+  geom_point(aes(size = mean_total, color = mean_total)) +
+  # geom_text(aes(label = round(mean_total, 1)), vjust = -0.5, size = 3.5) +
+  scale_color_gradient(low = "red", high = "green") +
+  labs(
+    title = "Average Total Amount by Payment and Shipping Method",
+    x = "Payment Method",
+    y = "Shipping Method",
+    size = "Mean Total Amount",
+    color = "Mean Total Amount"
+  ) +
+  theme_minimal()
+print(payment_shipping_dot_plot)
+
+## Section 3: Both IVs & Both DVs
+# Create and categorize Total Amount
+payment_shipping_facet_heatmap_data <- retail_data_proc %>%
+  mutate(Total_Amount = Purchase_Quantity * Amount) %>%
+  mutate(Total_Amount_Category = case_when(
+    Total_Amount < 100 ~ "<100",
+    Total_Amount >= 100 & Total_Amount <= 4000 ~ "100-4000",
+    Total_Amount > 4000 ~ ">4000"
+  ))
+
+# Create plot data
+payment_shipping_facet_heatmap_data <- payment_shipping_facet_heatmap_data %>%
+  group_by(Payment_Method, Shipping_Method, Total_Amount_Category, Ratings) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(Payment_Method, Shipping_Method, Total_Amount_Category) %>%
+  mutate(prop_high = count / sum(count)) %>%
+  filter(Ratings == "High")
+
+# Print the data
+print(payment_shipping_facet_heatmap_data)
+
+# Plot
+payment_shipping_facet_heatmap_plot <- ggplot(payment_shipping_facet_heatmap_data, aes(x = Payment_Method, y = Total_Amount_Category, fill = prop_high)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "#deebf7", high = "#08519c", labels = scales::percent_format(accuracy = 1)) +
+  facet_wrap(~Shipping_Method) +
+  labs(
+    title = "Satisfaction vs. Purchasing Behavior by Shipping and Payment",
+    x = "Payment Method",
+    y = "Total Amount Category",
+    fill = "% of High Ratings"
+  ) +
+  theme_minimal()
+print(payment_shipping_facet_heatmap_plot)
+
+### Analysis 2 - 2: Is there a statistically significant relationship between customer satisfaction with payment and shipping method? 
+## Calculate p value with Chi Square Test
+# Collapse into a 2D table by combining Shipping_Method & Payment_Method into one interaction
+retail_data_proc$Combo <- interaction(retail_data_proc$Payment_Method, retail_data_proc$Shipping_Method)
+payment_shipping_chi_table <- table(retail_data_proc$Ratings, retail_data_proc$Combo)
+
+## Perform Chi-square test
+payment_shipping_chi_test <- chisq.test(payment_shipping_chi_table)
+
+# Print results
+print(payment_shipping_chi_test)
+
+## With logistic regression test
+# Convert Ratings to binary (1 = High, 0 = Low)
+retail_data_proc$Ratings_Binary <- ifelse(retail_data_proc$Ratings == "High", 1, 0)
+
+# Fit logistic regression model
+payment_shipping_logit_model <- glm(Ratings_Binary ~ Payment_Method + Shipping_Method,
+                                    data = retail_data_proc, family = "binomial")
+
+# Summary and p-values
+summary(payment_shipping_logit_model)
+
+
+## Visualization
+# Run the logistic regression model
+payment_shipping_lr_model <- glm(Ratings_Binary ~ Payment_Method + Shipping_Method, data = retail_data_proc, family = binomial)
+
+# Extract coefficients and p-values
+payment_shipping_lr_summary_model <- summary(payment_shipping_lr_model)
+payment_shipping_coefficients_df <- as.data.frame(coef(payment_shipping_lr_summary_model))
+payment_shipping_coefficients_df$Variable <- rownames(payment_shipping_coefficients_df)
+colnames(payment_shipping_coefficients_df) <- c("Estimate", "Std_Error", "Z_Value", "P_Value", "Variable")
+
+# Remove intercept if you want to focus only on predictors
+payment_shipping_coefficients_df <- payment_shipping_coefficients_df[payment_shipping_coefficients_df$Variable != "(Intercept)", ]
+
+# Plot
+payment_shipping_coefficient_plot <- ggplot(payment_shipping_coefficients_df, aes(x = reorder(Variable, Estimate), y = Estimate, fill = P_Value < 0.05)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("TRUE" = "steelblue", "FALSE" = "gray")) +
+  geom_text(aes(label = paste0("p=", signif(P_Value, 3))), hjust = 0.1, size = 3) +
+  labs(
+    title = "Logistic Regression Coefficients & Significance",
+    x = "Predictor",
+    y = "Estimate (Effect on Log Odds)",
+    fill = "Significant (p < 0.05)"
+  ) +
+  theme_minimal()
+print(payment_shipping_coefficient_plot)
+
+
+## Second visualization
+payment_shipping_coefficients_df$log_pval <- -log10(payment_shipping_coefficients_df$P_Value)
+
+payment_shipping_log10_coefficient_plot <- ggplot(payment_shipping_coefficients_df, aes(x = reorder(Variable, log_pval), y = log_pval, fill = P_Value < 0.05)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "red") +
+  scale_fill_manual(values = c("TRUE" = "#08519c", "FALSE" = "gray")) +
+  labs(
+    title = "-log10(p-value) by Predictor",
+    x = "Predictor",
+    y = "-log10(p-value)",
+    fill = "Significant"
+  ) +
+  theme_minimal()
+print(payment_shipping_log10_coefficient_plot)
+
+
+### Analysis 2 – 3: How accurately can payment and shipping method predict customer satisfaction ratings?
+# Make sure Ratings_bin is a labeled factor
+retail_data_bin <- retail_data_proc %>%
+  mutate(Ratings_bin = ifelse(Ratings == "High", "High", "Low")) %>%
+  mutate(Ratings_bin = factor(Ratings_bin, levels = c("Low", "High")))
+
+
+# Down sampling
+set.seed(123)
+payment_shipping_downsampled_data <- caret::downSample(
+  x = dplyr::select(retail_data_bin, Payment_Method, Shipping_Method),
+  y = retail_data_bin$Ratings_bin,
+  yname = "Ratings_bin"
+)
+
+# Compare original data vs downsampled data high/low rating count
+print(table(factor(retail_data_bin$Ratings_bin, levels = c("Low", "High"))))
+print(table(payment_shipping_downsampled_data$Ratings_bin))
+
+# Split into training and testing sets
+set.seed(123)
+payment_shipping_trainIndex <- createDataPartition(payment_shipping_downsampled_data$Ratings_bin, p = 0.8, list = FALSE)
+payment_shipping_train_data <- payment_shipping_downsampled_data[payment_shipping_trainIndex, ]
+payment_shipping_test_data <- payment_shipping_downsampled_data[-payment_shipping_trainIndex, ]
+
+# Logistic Regression
+payment_shipping_logit_model <- glm(Ratings_bin ~ Payment_Method + Shipping_Method,
+                                    data = payment_shipping_train_data,
+                                    family = "binomial")
+
+# Ensure payment_shipping_test_data has same factor levels as payment_shipping_train_data
+payment_shipping_test_data$Payment_Method <- factor(payment_shipping_test_data$Payment_Method, levels = levels(payment_shipping_train_data$Payment_Method))
+payment_shipping_test_data$Shipping_Method <- factor(payment_shipping_test_data$Shipping_Method, levels = levels(payment_shipping_train_data$Shipping_Method))
+
+# Predict probabilities and classes
+payment_shipping_logit_probs <- predict(payment_shipping_logit_model, newdata = payment_shipping_test_data[, c("Payment_Method", "Shipping_Method")], type = "response")
+payment_shipping_logit_preds <- ifelse(payment_shipping_logit_probs > 0.5, "High", "Low")
+payment_shipping_logit_preds <- factor(payment_shipping_logit_preds, levels = c("Low", "High"))
+
+# Step 6: XGBoost Prediction
+payment_shipping_dummies <- dummyVars(Ratings_bin ~ ., data = payment_shipping_train_data)
+train_matrix <- predict(payment_shipping_dummies, newdata = payment_shipping_train_data)
+test_matrix <- predict(payment_shipping_dummies, newdata = payment_shipping_test_data)
+
+# Convert target to numeric 0 and 1
+payment_shipping_dtrain <- xgb.DMatrix(data = train_matrix, label = as.numeric(payment_shipping_train_data$Ratings_bin) - 1)
+payment_shipping_dtest <- xgb.DMatrix(data = test_matrix, label = as.numeric(payment_shipping_test_data$Ratings_bin) - 1)
+
+# Train the XGBoost model
+payment_shipping_xgb_model <- xgboost(data = payment_shipping_dtrain, nrounds = 50, objective = "binary:logistic", verbose = 0)
+
+# Predict probabilities and classes
+payment_shipping_xgb_probs <- predict(payment_shipping_xgb_model, payment_shipping_dtest)
+payment_shipping_xgb_preds <- ifelse(payment_shipping_xgb_probs > 0.5, "High", "Low")
+payment_shipping_xgb_preds <- factor(payment_shipping_xgb_preds, levels = c("Low", "High"))
+
+# Output predictions for review
+print("Logistic Regression Predictions Summary:")
+print(summary(payment_shipping_logit_preds))
+
+print("XGBoost Predictions Summary:")
+print(summary(payment_shipping_xgb_preds))
+
+
+### Prediction Evaluation
+## Confusion Matrix Evaluation (CM)
+# Logistic Regression CM
+# Ensure both are factors with the same levels
+payment_shipping_logit_preds <- factor(payment_shipping_logit_preds, levels = c("Low", "High"))
+payment_shipping_test_data$Ratings_bin <- factor(payment_shipping_test_data$Ratings_bin, levels = c("Low", "High"))
+
+payment_shipping_cm_logit <- confusionMatrix(payment_shipping_logit_preds, payment_shipping_test_data$Ratings_bin)
+print(payment_shipping_cm_logit)
+
+# XGBoost CM
+payment_shipping_cm_xgb <- confusionMatrix(payment_shipping_xgb_preds, payment_shipping_test_data$Ratings_bin)
+print(payment_shipping_cm_xgb)
+
+## ROC Curve Evaluation (ROC)
+# Logistic Regression
+payment_shipping_roc_logit <- roc(as.numeric(payment_shipping_test_data$Ratings_bin), as.numeric(payment_shipping_logit_probs))
+payment_shipping_auc_logit <- auc(payment_shipping_roc_logit)
+# Plot
+payment_shipping_lr_roc <- plot(payment_shipping_roc_logit, main = paste("Logistic Regression ROC Curve (AUC =", round(payment_shipping_auc_logit, 3), ")"))
+
+# XGBoost
+payment_shipping_roc_xgb <- roc(as.numeric(payment_shipping_test_data$Ratings_bin), as.numeric(payment_shipping_xgb_probs))
+payment_shipping_auc_xgb <- auc(payment_shipping_roc_xgb)
+# Plot
+payment_shipping_xgb_roc <- plot(payment_shipping_roc_xgb, main = paste("XGBoost ROC Curve (AUC =", round(payment_shipping_auc_xgb, 3), ")"))
+
+### Analysis 2 – 4: How Does Payment And Shipping Methods Affect Customer Satisfaction Across Clusters?
+# Prepare the cluster data (add Total_Amount and convert Ratings)
+transaction_cluster_data <- retail_data_proc %>%
+  mutate(
+    Total_Amount = Purchase_Quantity * Amount,
+    Rating_Numeric = ifelse(Ratings == "High", 1, 0)  # Convert to numeric
+  ) %>%
+  dplyr::select(Payment_Method, Shipping_Method, Total_Amount, Rating_Numeric) %>%
+  drop_na()
+
+# Down sampling the cluster data to 12k records
+set.seed(123)  # For reproducibility
+transaction_cluster_data_sampled <- transaction_cluster_data %>%
+  sample_n(12000)
+
+# Calculate Gower distance 
+gower_dist <- cluster::daisy(transaction_cluster_data_sampled, metric = "gower")
+
+# Hierarchical clustering
+transaction_hclust_model <- hclust(gower_dist, method = "complete")
+
+# Cut into 3 clusters
+transaction_cluster_cut <- cutree(transaction_hclust_model, k = 3)
+
+# Add cluster results back to sampled data
+transaction_cluster_data_sampled$Cluster <- as.factor(transaction_cluster_cut)
+
+# Encode categoricals to model matrix
+transaction_cluster_data_encoded <- model.matrix(~ Payment_Method + Shipping_Method + Total_Amount + Rating_Numeric - 1, data = transaction_cluster_data_sampled)
+transaction_cluster_data_encoded <- as.data.frame(transaction_cluster_data_encoded)
+
+# Add back cluster info for use in PCA or visualization
+transaction_cluster_data_encoded$Cluster <- transaction_cluster_data_sampled$Cluster
+
+# Plot
+transaction_cluster_plot <- factoextra::fviz_cluster(
+  list(data = transaction_cluster_data_encoded[, !names(transaction_cluster_data_encoded) %in% "Cluster"], 
+       cluster = transaction_cluster_data_encoded$Cluster),
+  geom = "point", ellipse.type = "convex", palette = "jco",
+  main = "Cluster Visualization"
+)
+print(transaction_cluster_plot)
+
+transaction_cluster_data_sampled$Cluster <- as.factor(transaction_cluster_cut)
+
+
+transaction_summary_table <- transaction_cluster_data_sampled %>%
+  group_by(Cluster) %>%
   summarise(
-    Total = n(),
-    High_Count = sum(Ratings == "High"),
-    High_Proportion = High_Count / Total,
+    Cluster_Size = n(),
+    Avg_Amount = round(mean(Total_Amount, na.rm = TRUE), 2),
+    Avg_Rating = round(mean(Rating_Numeric, na.rm = TRUE), 3),
+    Top_Shipping = names(sort(table(Shipping_Method), decreasing = TRUE))[1],
+    Top_Payment = names(sort(table(Payment_Method), decreasing = TRUE))[1],
     .groups = "drop"
   )
 
-ggplot(ratings_summary, aes(x = Country, y = High_Proportion, group = Age_Group, color = Age_Group)) +
-  geom_line(linewidth = 1) +
-  geom_point(size = 3.5) +
-  labs(
-    title = "Proportion of 'High' Ratings by Country and Age Group",
-    x = "Country",
-    y = "Proportion of High Ratings",
-    color = "Age Group"
-  ) +
-  theme_minimal() +
-  scale_y_continuous(labels = scales::percent)
+print(transaction_summary_table)
 
 
-## Plotting raw amount data (Country Age Product)
-# Step 1: Create a new dataset with Total_Amount
-plot_data_raw <- plot_data %>% mutate(Total_Amount = Purchase_Quantity * Amount)
-plot_data_summary <- plot_data_raw %>%
-  group_by(Product_Category, Age_Group, Country) %>%
-  summarise(Total_Sales = sum(Total_Amount), .groups = "drop")
+## Top 3 Payment x Shipping Combo in each cluster
+# Preparing Data
+transaction_cluster_data_sampled_data <- transaction_cluster_data_sampled %>%
+  mutate(Combo = paste(Payment_Method, "+", Shipping_Method))
 
-# Step 2: Create the dot and line plot
-ggplot(plot_data_summary, aes(x = Product_Category, y = Total_Sales, color = Age_Group, group = Age_Group)) +
-  geom_line(size = 0.7) +
-  geom_point(size = 2.5) +
-  facet_wrap(~ Country) +
-  scale_y_continuous(labels = scales::comma) + 
-  labs(
-    title = "Sales by Product Category and Age Group, Faceted by Country",
-    x = "Product Category",
-    y = "Total Sales Amount",
-    color = "Age Group"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-## Data visualization with Age Group, Product Category, and Country
-# Step 1: Summarize data (proportion of High ratings)
-overall_plot_data <- plot_data %>%
-  group_by(Age_Group, Product_Category, Ratings, Country) %>%
+transaction_summary_table <- transaction_cluster_data_sampled_data %>%
+  group_by(Cluster, Combo) %>%
   summarise(Count = n(), .groups = "drop") %>%
-  group_by(Age_Group, Product_Category, Country) %>%
-  mutate(Proportion = Count / sum(Count)) %>%
-  filter(Ratings == "High")  # Plot only "High" ratings
+  group_by(Cluster) %>%
+  mutate(Percent = Count / sum(Count) * 100) %>%
+  arrange(Cluster, desc(Count)) %>%
+  slice_head(n = 1)  # Top combo per cluster
 
-# Step 2: Define custom color palette
-age_colors <- c(
-  "18-25" = "#E41A1C",
-  "26-35" = "#377EB8",
-  "36-45" = "#4DAF4A",
-  "46-55" = "#984EA3",
-  "56+"   = "#FF7F00"
-)
+transaction_summary_table
 
-# Step 3: Plot
-ggplot(overall_plot_data, aes(x = Product_Category, y = Proportion, group = Age_Group, color = Age_Group)) +
-  geom_line(linewidth = 0.5) +
-  geom_point(size = 2.5) +
-  scale_color_manual(values = age_colors) +
-  labs(
-    title = "Proportion of High Ratings by Product Category, Age Group, and Country",
-    x = "Product Category",
-    y = "Proportion of High Ratings",
-    color = "Age Group"
+
+# Create combo column
+transaction_cluster_data_sampled_data$Combo <- paste(transaction_cluster_data_sampled_data$Payment_Method, transaction_cluster_data_sampled_data$Shipping_Method, sep = " + ")
+
+# Get top 3 combos per cluster
+payment_shipping_top_combos <- transaction_cluster_data_sampled_data %>%
+  count(Cluster, Combo) %>%
+  group_by(Cluster) %>%
+  slice_max(n, n = 3) %>%
+  mutate(Proportion = n / sum(n)) %>%
+  arrange(Cluster, desc(n)) %>%
+  mutate(Combo = factor(Combo, levels = rev(unique(Combo)))) %>%  # this ensures proper stacking order within each cluster
+  mutate(LabelPos = cumsum(Proportion) - Proportion / 2) %>%
+  ungroup() %>%
+  mutate(Label = ifelse(Proportion > 0.05, paste0(Combo, "\n", percent(Proportion)), ""))
+
+# Plot
+cluster_combo_plot <- ggplot(payment_shipping_top_combos, aes(x = factor(1), y = Proportion, fill = Combo)) +
+  geom_bar(stat = "identity", width = 1) +
+  geom_text(
+    aes(y = LabelPos, label = Label),
+    color = "black", size = 3, fontface = "italic", angle =30, lineheight = 0.9
   ) +
-  facet_wrap(~ Country) +  # Add Country as facet
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-
-### Analysis 2 - 2: Is there a statistically significant relationship between customer satisfaction, product category, age, and country? 
-## Calculate p value
-## with Binary Logistic Regression
-bayesglm_data <- downSample(
-  x = plot_data[, c("Age_Group", "Product_Category", "Country")],
-  y = plot_data$Ratings,
-  yname = "Ratings"
-)
-
-# Convert to factor (optional if already factors)
-bayesglm_data <- bayesglm_data %>%
-  mutate(across(c(Age_Group, Product_Category, Country), as.factor))
-
-## Bayesian
-bayes_model <- bayesglm(Ratings ~ Age_Group + Country,
-                        data = bayesglm_data,
-                        family = binomial)
-summary(bayes_model)
-
-confint(bayes_model)  # Confidence intervals for the coefficients
-exp(coef(bayes_model))           # Odds ratios
-exp(confint(bayes_model))        # Confidence intervals on odds ratios
-
-## Visualization
-# Tidy the model output with confidence intervals and odds ratios
-tidy_bayes <- tidy(bayes_model, conf.int = TRUE, exponentiate = TRUE)
-
-# Plot horizontally
-ggplot(tidy_bayes, aes(x = estimate, y = reorder(term, estimate))) +
-  geom_point(color = "steelblue", size = 3) +
-  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0.2, color = "gray40") +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "red") +
-  labs(title = "Odds Ratios from Bayesian Logistic Regression",
-       x = "Odds Ratio (with 95% CI)",
-       y = "Predictor") +
-  theme_minimal(base_size = 14)
-
-## Multinom 
-# Downsample for multinom (multiclass outcome: Product_Category)
-multinom_data <- downSample(
-  x = plot_data[, c("Age_Group", "Country")],
-  y = plot_data$Product_Category,
-  yname = "Product_Category"
-)
-
-# Convert to factor
-multinom_data <- multinom_data %>%
-  mutate(across(c(Age_Group, Country, Product_Category), as.factor))
-
-# Fit the multinomial logistic regression model
-multinom_model <- multinom(Product_Category ~ Age_Group + Country, data = multinom_data)
-summary(multinom_model)
-
-# Tidy up the model with exponentiated estimates and confidence intervals
-tidy_multinom <- tidy(multinom_model, conf.int = TRUE, exponentiate = TRUE)
-
-# Plot odds ratios with confidence intervals
-ggplot(tidy_multinom, aes(x = estimate, y = reorder(term, estimate))) +
-  geom_point(color = "darkorange", size = 3) +
-  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0.2, color = "gray50") +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "red") +
+  facet_wrap(~ Cluster) +
   labs(
-    title = "Odds Ratios from Multinomial Logistic Regression",
-    x = "Odds Ratio (95% CI)",
-    y = "Predictor Term"
+    title = "Proportional Distribution of Top 3 Payment + Shipping Combos per Cluster",
+    x = NULL,
+    y = "Proportion"
   ) +
-  theme_minimal(base_size = 14)
-
-z <- summary(multinom_model)$coefficients / summary(multinom_model)$standard.errors
-p <- 2 * (1 - pnorm(abs(z)))  # two-tailed test
-print(p)
-
-
-### Analysis 2 – 3: How accurately can a customer age, country and product category predict customer satisfaction ratings? 
-## A prediction when total amount is constant (fixed value), only uses shipping method
-# Generate new data frame to predict
-# Create new hypothetical data to predict on
-new_data <- expand.grid(
-  Age_Group = unique(balanced_data$Age_Group),
-  Product_Category = unique(balanced_data$Product_Category),
-  Country = unique(balanced_data$Country)
-)
-
-# Predict probabilities
-new_data$Predicted_Prob <- predict(model, newdata = new_data, type = "response")
-
-# Visualize predictions
-ggplot(new_data, aes(x = Product_Category, y = Predicted_Prob, color = Age_Group)) +
-  geom_point() +
-  facet_wrap(~Country) + 
-  labs(
-    title = "Predicted Probability of High Rating",
-    x = "Product Category",
-    y = "Predicted Probability"
-  ) +
+  scale_y_continuous(labels = percent_format()) +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
 
-
-## Confusion Matrix to check accuracy
-# Step 1: Make predictions (probabilities)
-pred_probs <- predict(model, type = "response")
-
-# Step 2: Convert probabilities into class labels
-# Assume threshold 0.5 for binary classification
-pred_class <- ifelse(pred_probs >= 0.5, "High", "Low")
-
-# Step 3: Create confusion matrix
-# Convert both actual and predicted values to factors with same levels
-actual <- factor(balanced_data$Ratings, levels = c("Low", "High"))
-predicted <- factor(pred_class, levels = c("Low", "High"))
-
-# Use caret package for nicer output (optional)
-confusionMatrix(predicted, actual)
-
-## ROC Curve
-# Step 1: Convert actual labels to numeric (Low = 0, High = 1)
-actual_numeric <- ifelse(actual == "High", 1, 0)
-
-# Step 2: Compute ROC curve
-roc_obj <- roc(actual_numeric, pred_probs)
-
-# Step 3: Plot the ROC curve
-plot(roc_obj, 
-     main = "ROC Curve for Customer Satisfaction Prediction",
-     col = "#2c7fb8", lwd = 2)
-abline(a = 0, b = 1, lty = 2, col = "gray")  # diagonal line for random guessing
-
-# Step 4: Print AUC (Area Under Curve)
-auc_value <- auc(roc_obj)
-cat("AUC:", auc_value, "\n")
-
-### Analysis 2 – 4: What actionable improvements in shipping or pricing strategies could lead to better customer satisfaction? 
-## Heat Map (face wrap via age group)
-plot_data %>%
-  mutate(Ratings_Num = ifelse(Ratings == "High", 1, 0)) %>%
-  group_by(Country, Age_Group, Product_Category) %>%
-  summarise(Avg_High = mean(Ratings_Num, na.rm = TRUE)) %>%
-  ggplot(aes(x = Product_Category, y = Country, fill = Avg_High)) +
-  geom_tile(color = "white") +
-  scale_fill_gradient(low = "lightgray", high = "darkblue") +
-  facet_wrap(~ Age_Group) +
-  labs(title = "Proportion of High Ratings by Age, Product Category, and Country",
-       fill = "High Rating %",
-       x = "Product Category", y = "Age Group") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-
-## Dot Plot (Faceet wrap via country)
-plot_data %>%
-  mutate(Ratings_Num = ifelse(Ratings == "High", 1, 0)) %>%
-  group_by(Country, Age_Group, Product_Category) %>%
-  summarise(High_Prop = mean(Ratings_Num, na.rm = TRUE)) %>%
-  ggplot(aes(x = Product_Category, y = Age_Group, size = High_Prop, color = High_Prop)) +
-  geom_point(alpha = 0.8) +
-  geom_text(aes(label = round(High_Prop * 100, 1)), 
-            color = "black", size = 3, vjust = -1.5) +  # adjust vjust as needed
-  facet_wrap(~ Country) +
-  scale_size_continuous(range = c(2, 10)) +
-  scale_color_gradient(low = "red", high = "green") +
-  labs(
-    title = "High Ratings by Product Category, Age Group, and Country",
-    x = "Product Category",
-    y = "Age Group",
-    size = "High Rating %",
-    color = "High Rating %"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(cluster_combo_plot)
