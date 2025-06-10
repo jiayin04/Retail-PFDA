@@ -665,59 +665,79 @@ ui <- dashboardPage(
       tabItem(tabName = "analysis3",
               fluidRow(
                 box(
-                  title = "Teammate Analysis 3", 
+                  title = "Transaction Logistics Analysis", 
                   status = "primary", 
                   solidHeader = TRUE,
                   width = 12,
-                  h3("Analysis Title: [To be filled by teammate]"),
-                  p("This section will contain the third teammate's analysis."),
-                  br(),
-                  div(
-                    style = "text-align: center; padding: 50px;",
-                    h4("Content will be added by Teammate 3", style = "color: #999;"),
-                    icon("chart-pie", style = "font-size: 48px; color: #ddd;")
-                  )
+                  p("This analysis examines how payment and shipping methods affect customer satisfaction and purchasing behavior.")
                 )
               ),
               fluidRow(
-                column(4,
-                       box(
-                         title = "Metric 1",
-                         status = "warning",
-                         solidHeader = TRUE,
-                         width = 12,
-                         div(
-                           style = "height: 200px; background-color: #f9f9f9; border: 2px dashed #ddd; 
-                         display: flex; align-items: center; justify-content: center;",
-                           p("Metric 1", style = "color: #999; font-size: 16px;")
-                         )
-                       )
-                ),
-                column(4,
-                       box(
-                         title = "Metric 2",
-                         status = "warning",
-                         solidHeader = TRUE,
-                         width = 12,
-                         div(
-                           style = "height: 200px; background-color: #f9f9f9; border: 2px dashed #ddd; 
-                         display: flex; align-items: center; justify-content: center;",
-                           p("Metric 2", style = "color: #999; font-size: 16px;")
-                         )
-                       )
-                ),
-                column(4,
-                       box(
-                         title = "Metric 3",
-                         status = "warning",
-                         solidHeader = TRUE,
-                         width = 12,
-                         div(
-                           style = "height: 200px; background-color: #f9f9f9; border: 2px dashed #ddd; 
-                         display: flex; align-items: center; justify-content: center;",
-                           p("Metric 3", style = "color: #999; font-size: 16px;")
-                         )
-                       )
+                box(
+                  width = 12,
+                  tabsetPanel(
+                    id = "logistics_tabs",
+                    
+                    # Descriptive Analysis Tab
+                    tabPanel("Descriptive Analysis",
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "Satisfaction vs. Purchasing Behavior by Shipping and Payment",
+                                        status = "primary",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("payment_shipping_facet_heatmap"))
+                                      )
+                               )
+                             )
+                    ),
+                    
+                    # Statistical Analysis Tab
+                    tabPanel("Statistical Analysis",
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "Logistic Regression Coefficients & Significance",
+                                        status = "warning",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("payment_shipping_coefficient"))
+                                      )
+                               )
+                             )
+                    ),
+                    
+                    # Predictive Analysis Tab
+                    tabPanel("Predictive Analysis",
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "XGBoost ROC Curve",
+                                        status = "success",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("payment_shipping_xgb_roc"))
+                                      )
+                               )
+                             )
+                    ),
+                    
+                    # Clustering Analysis Tab
+                    tabPanel("Clustering Analysis",
+                             fluidRow(
+                               column(12,
+                                      box(
+                                        title = "Top Payment + Shipping Combos per Cluster",
+                                        status = "info",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotOutput("cluster_combo"))
+                                      )
+                               )
+                             )
+                    )
+                  )
                 )
               )
       )
@@ -1158,6 +1178,23 @@ server <- function(input, output, session) {
   output$segment_ratings_mosaic <- renderPlot({
     mosaic(~ Customer_Segment + Ratings, data = data, shade = TRUE, 
            main = "Customer Segment vs Ratings")
+  })
+  
+  # Transaction Logistics Analysis Outputs
+  output$payment_shipping_facet_heatmap <- renderPlot({
+    payment_shipping_facet_heatmap_plot
+  })
+  
+  output$payment_shipping_coefficient <- renderPlot({
+    payment_shipping_coefficient_plot
+  })
+  
+  output$payment_shipping_xgb_roc <- renderPlot({
+    plot(payment_shipping_roc_xgb, main = paste("XGBoost ROC Curve (AUC =", round(payment_shipping_auc_xgb, 3), ")"))
+  })
+  
+  output$cluster_combo <- renderPlot({
+    cluster_combo_plot
   })
 }
 
