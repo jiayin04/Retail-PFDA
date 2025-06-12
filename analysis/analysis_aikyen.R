@@ -5,6 +5,7 @@ library(ggplot2)
 library(caret)
 library(pROC)
 library(xgboost)
+library(arules)
 library(purrr)
 library(reshape2)
 library(cluster)
@@ -12,7 +13,72 @@ library(dendextend)
 library(factoextra)
 
 ### Analysis 2 - 1: How does customer Payment Method and Shipping Method affect customer satisfaction levels and total amount?
-## Section 1: IVs x Ratings
+## EDA
+# Shipping Method vs Ratings
+shipping_rating_plot_data <- retail_data_proc %>%
+  group_by(Shipping_Method, Ratings) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  group_by(Shipping_Method) %>%
+  mutate(Proportion = Count / sum(Count)) %>%
+  ungroup()
+
+# Creating Labels
+shipping_labels <- shipping_rating_plot_data %>%
+  group_by(Shipping_Method) %>%
+  summarise(
+    Total = sum(Count),
+    Percent = sum(Proportion[Ratings == "High"]) * 100
+  ) %>%
+  mutate(Label = paste0("Raw: ", Total, " (", round(Percent, 2), "%)"))
+
+shipping_rating_plot <- ggplot(shipping_rating_plot_data, aes(x = Shipping_Method, 
+                                                              y = Proportion, 
+                                                              fill = Ratings)) +
+  geom_col() +
+  geom_text(data = shipping_labels, 
+            aes(x = Shipping_Method, y = 1.05, label = Label),
+            inherit.aes = FALSE,
+            size = 3.5) +
+  labs(title = "Proportional Ratings by Shipping Method",
+       y = "Proportion", x = "Shipping Method") +
+  scale_y_continuous(labels = percent_format(), limits = c(0, 1.15)) +
+  theme_minimal()
+
+print(shipping_rating_plot)
+
+
+# Payment Method vs Ratings
+payment_rating_plot_data <- retail_data_proc %>%
+  group_by(Payment_Method, Ratings) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  group_by(Payment_Method) %>%
+  mutate(Proportion = Count / sum(Count)) %>%
+  ungroup()
+
+payment_labels <- payment_rating_plot_data %>%
+  group_by(Payment_Method) %>%
+  summarise(
+    Total = sum(Count),
+    Percent = sum(Proportion[Ratings == "High"]) * 100
+  ) %>%
+  mutate(Label = paste0("Raw: ", Total, " (", round(Percent, 2), "%)"))
+
+payment_rating_plot <- ggplot(payment_rating_plot_data, aes(x = Payment_Method, 
+                                                            y = Proportion, 
+                                                            fill = Ratings)) +
+  geom_col() +
+  geom_text(data = payment_labels, 
+            aes(x = Payment_Method, y = 1.05, label = Label),
+            inherit.aes = FALSE,
+            size = 3.5) +
+  labs(title = "Proportional Ratings by Payment Method",
+       y = "Proportion", x = "Payment Method") +
+  scale_y_continuous(labels = percent_format(), limits = c(0, 1.15)) +
+  theme_minimal()
+
+print(payment_rating_plot)
+
+## Section 1: Payment & Shipping Method x Ratings
 # Create plot data
 payment_shipping_interception_plot_data <- retail_data_proc %>%
   group_by(Payment_Method, Shipping_Method, Ratings) %>%
@@ -25,7 +91,10 @@ payment_shipping_interception_plot_data <- retail_data_proc %>%
 print(payment_shipping_interception_plot_data)
 
 # Plot
-payment_shipping_interception_plot <- ggplot(payment_shipping_interception_plot_data, aes(x = Payment_Method, y = prop_high, group = Shipping_Method, color = Shipping_Method)) +
+payment_shipping_interception_plot <- ggplot(payment_shipping_interception_plot_data,
+                                             aes(x = Payment_Method, 
+                                                 y = prop_high, group = Shipping_Method,
+                                                 color = Shipping_Method)) +
   geom_point(size = 4) +
   geom_line(linewidth = 1.2) +
   labs(
@@ -39,7 +108,7 @@ payment_shipping_interception_plot <- ggplot(payment_shipping_interception_plot_
 print(payment_shipping_interception_plot)
 
 
-## Section 2: IVs x Total Amount (Purchasing Behavior)
+## Section 2: Payment & Shipping Method x Total Amount (Purchasing Behavior)
 # Create plot-specific Total_Amount without mutating retail_data_proc
 payment_shipping_dot_plot_data <- retail_data_proc %>%
   mutate(Total_Amount = Purchase_Quantity * Amount) %>%
@@ -64,7 +133,7 @@ payment_shipping_dot_plot <- ggplot(payment_shipping_dot_plot_data, aes(x = Paym
   theme_minimal()
 print(payment_shipping_dot_plot)
 
-## Section 3: Both IVs & Both DVs
+## Section 3: Payment & Shipping Method & Total Amount x Ratings
 # Create and categorize Total Amount
 payment_shipping_facet_heatmap_data <- retail_data_proc %>%
   mutate(Total_Amount = Purchase_Quantity * Amount) %>%
@@ -82,12 +151,15 @@ payment_shipping_facet_heatmap_data <- payment_shipping_facet_heatmap_data %>%
   mutate(prop_high = count / sum(count)) %>%
   filter(Ratings == "High")
 
-# Print the data
-print(payment_shipping_facet_heatmap_data)
+# View the data
+print(payment_shipping_facet_heatmap_data, n = Inf)
 
 # Plot
-payment_shipping_facet_heatmap_plot <- ggplot(payment_shipping_facet_heatmap_data, aes(x = Payment_Method, y = Total_Amount_Category, fill = prop_high)) +
+payment_shipping_facet_heatmap_plot <- ggplot(payment_shipping_facet_heatmap_data, aes(x = Payment_Method, 
+                                                                                       y = Total_Amount_Category,
+                                                                                       fill = prop_high)) +
   geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f%%", prop_high * 100)), size = 3, color = "black") +
   scale_fill_gradient(low = "#deebf7", high = "#08519c", labels = scales::percent_format(accuracy = 1)) +
   facet_wrap(~Shipping_Method) +
   labs(
@@ -98,6 +170,38 @@ payment_shipping_facet_heatmap_plot <- ggplot(payment_shipping_facet_heatmap_dat
   ) +
   theme_minimal()
 print(payment_shipping_facet_heatmap_plot)
+
+
+# Check if ratings reduce as total amount goes up
+# Step 1: Bin and calculate midpoint
+total_amount_rating_data <- retail_data_proc %>%
+  mutate(Total_Amount = Purchase_Quantity * Amount) %>%
+  mutate(Total_Amount_Bin = cut(Total_Amount, breaks = 20, include.lowest = TRUE)) %>%
+  mutate(Bin_Mid = as.numeric(sub("\\((.+),(.+)\\]", "\\1", Total_Amount_Bin)) +
+           (as.numeric(sub("\\((.+),(.+)\\]", "\\2", Total_Amount_Bin)) -
+              as.numeric(sub("\\((.+),(.+)\\]", "\\1", Total_Amount_Bin))) / 2) %>%
+  group_by(Total_Amount_Bin, Bin_Mid, Ratings) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  group_by(Total_Amount_Bin, Bin_Mid) %>%
+  mutate(Total = sum(Count),
+         prop_high = sum(ifelse(Ratings == "High", Count, 0)) / Total) %>%
+  filter(Ratings == "High")
+
+# Step 2: Plot using bin midpoint
+total_amount_rating_plot <- ggplot(total_amount_rating_data, aes(x = Bin_Mid, y = Total, fill = prop_high)) +
+  geom_col() +
+  scale_fill_gradient(low = "red", high = "green", labels = scales::percent_format(accuracy = 1)) +
+  scale_x_continuous(labels = scales::comma_format()) +
+  labs(
+    title = "Total Amount vs Ratings Distribution",
+    x = "Total Amount (Bin Midpoint)",
+    y = "Count",
+    fill = "% of High Ratings"
+  ) +
+  theme_minimal()
+print(total_amount_rating_plot)
+
+
 
 ### Analysis 2 - 2: Is there a statistically significant relationship between customer satisfaction with payment and shipping method? 
 ## Calculate p value with Chi Square Test
@@ -117,27 +221,26 @@ retail_data_proc$Ratings_Binary <- ifelse(retail_data_proc$Ratings == "High", 1,
 
 # Fit logistic regression model
 payment_shipping_logit_model <- glm(Ratings_Binary ~ Payment_Method + Shipping_Method,
-                                    data = retail_data_proc, family = "binomial")
+                   data = retail_data_proc, family = "binomial")
 
 # Summary and p-values
 summary(payment_shipping_logit_model)
 
 
 ## Visualization
-# Run the logistic regression model
-payment_shipping_lr_model <- glm(Ratings_Binary ~ Payment_Method + Shipping_Method, data = retail_data_proc, family = binomial)
-
 # Extract coefficients and p-values
-payment_shipping_lr_summary_model <- summary(payment_shipping_lr_model)
+payment_shipping_lr_summary_model <- summary(payment_shipping_logit_model)
 payment_shipping_coefficients_df <- as.data.frame(coef(payment_shipping_lr_summary_model))
 payment_shipping_coefficients_df$Variable <- rownames(payment_shipping_coefficients_df)
 colnames(payment_shipping_coefficients_df) <- c("Estimate", "Std_Error", "Z_Value", "P_Value", "Variable")
 
-# Remove intercept if you want to focus only on predictors
+# Removing intercepts (only focus on our predictors)
 payment_shipping_coefficients_df <- payment_shipping_coefficients_df[payment_shipping_coefficients_df$Variable != "(Intercept)", ]
 
 # Plot
-payment_shipping_coefficient_plot <- ggplot(payment_shipping_coefficients_df, aes(x = reorder(Variable, Estimate), y = Estimate, fill = P_Value < 0.05)) +
+payment_shipping_coefficient_plot <- ggplot(payment_shipping_coefficients_df, aes(x = reorder(Variable, Estimate), 
+                                                                                  y = Estimate, 
+                                                                                  fill = P_Value < 0.05)) +
   geom_bar(stat = "identity") +
   coord_flip() +
   scale_fill_manual(values = c("TRUE" = "steelblue", "FALSE" = "gray")) +
@@ -155,7 +258,9 @@ print(payment_shipping_coefficient_plot)
 ## Second visualization
 payment_shipping_coefficients_df$log_pval <- -log10(payment_shipping_coefficients_df$P_Value)
 
-payment_shipping_log10_coefficient_plot <- ggplot(payment_shipping_coefficients_df, aes(x = reorder(Variable, log_pval), y = log_pval, fill = P_Value < 0.05)) +
+payment_shipping_log10_coefficient_plot <- ggplot(payment_shipping_coefficients_df, aes(x = reorder(Variable, log_pval),
+                                                                                        y = log_pval,
+                                                                                        fill = P_Value < 0.05)) +
   geom_bar(stat = "identity") +
   coord_flip() +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "red") +
@@ -171,7 +276,7 @@ print(payment_shipping_log10_coefficient_plot)
 
 
 ### Analysis 2 – 3: How accurately can payment and shipping method predict customer satisfaction ratings?
-# Make sure Ratings_bin is a labeled factor
+# Preparing data (Converting ratings into binary format)
 retail_data_bin <- retail_data_proc %>%
   mutate(Ratings_bin = ifelse(Ratings == "High", "High", "Low")) %>%
   mutate(Ratings_bin = factor(Ratings_bin, levels = c("Low", "High")))
@@ -197,15 +302,19 @@ payment_shipping_test_data <- payment_shipping_downsampled_data[-payment_shippin
 
 # Logistic Regression
 payment_shipping_logit_model <- glm(Ratings_bin ~ Payment_Method + Shipping_Method,
-                                    data = payment_shipping_train_data,
-                                    family = "binomial")
+                   data = payment_shipping_train_data,
+                   family = "binomial")
 
 # Ensure payment_shipping_test_data has same factor levels as payment_shipping_train_data
-payment_shipping_test_data$Payment_Method <- factor(payment_shipping_test_data$Payment_Method, levels = levels(payment_shipping_train_data$Payment_Method))
-payment_shipping_test_data$Shipping_Method <- factor(payment_shipping_test_data$Shipping_Method, levels = levels(payment_shipping_train_data$Shipping_Method))
+payment_shipping_test_data$Payment_Method <- factor(payment_shipping_test_data$Payment_Method,
+                                                    levels = levels(payment_shipping_train_data$Payment_Method))
+payment_shipping_test_data$Shipping_Method <- factor(payment_shipping_test_data$Shipping_Method,
+                                                     levels = levels(payment_shipping_train_data$Shipping_Method))
 
 # Predict probabilities and classes
-payment_shipping_logit_probs <- predict(payment_shipping_logit_model, newdata = payment_shipping_test_data[, c("Payment_Method", "Shipping_Method")], type = "response")
+payment_shipping_logit_probs <- predict(payment_shipping_logit_model,
+                                        newdata = payment_shipping_test_data[, c("Payment_Method", "Shipping_Method")],
+                                        type = "response")
 payment_shipping_logit_preds <- ifelse(payment_shipping_logit_probs > 0.5, "High", "Low")
 payment_shipping_logit_preds <- factor(payment_shipping_logit_preds, levels = c("Low", "High"))
 
@@ -253,14 +362,17 @@ print(payment_shipping_cm_xgb)
 payment_shipping_roc_logit <- roc(as.numeric(payment_shipping_test_data$Ratings_bin), as.numeric(payment_shipping_logit_probs))
 payment_shipping_auc_logit <- auc(payment_shipping_roc_logit)
 # Plot
-payment_shipping_lr_roc <- plot(payment_shipping_roc_logit, main = paste("Logistic Regression ROC Curve (AUC =", round(payment_shipping_auc_logit, 3), ")"))
+payment_shipping_lr_roc <- plot(payment_shipping_roc_logit,
+                                main = paste("Logistic Regression ROC Curve (AUC =",round(payment_shipping_auc_logit, 3), ")"))
 
 # XGBoost
 payment_shipping_roc_xgb <- roc(as.numeric(payment_shipping_test_data$Ratings_bin), as.numeric(payment_shipping_xgb_probs))
 payment_shipping_auc_xgb <- auc(payment_shipping_roc_xgb)
 # Plot
-payment_shipping_xgb_roc <- plot(payment_shipping_roc_xgb, main = paste("XGBoost ROC Curve (AUC =", round(payment_shipping_auc_xgb, 3), ")"))
+payment_shipping_xgb_roc <- plot(payment_shipping_roc_xgb,
+                                 main = paste("XGBoost ROC Curve (AUC =", round(payment_shipping_auc_xgb, 3), ")"))
 
+  
 ### Analysis 2 – 4: How Does Payment And Shipping Methods Affect Customer Satisfaction Across Clusters?
 # Prepare the cluster data (add Total_Amount and convert Ratings)
 transaction_cluster_data <- retail_data_proc %>%
@@ -289,7 +401,11 @@ transaction_cluster_cut <- cutree(transaction_hclust_model, k = 3)
 transaction_cluster_data_sampled$Cluster <- as.factor(transaction_cluster_cut)
 
 # Encode categoricals to model matrix
-transaction_cluster_data_encoded <- model.matrix(~ Payment_Method + Shipping_Method + Total_Amount + Rating_Numeric - 1, data = transaction_cluster_data_sampled)
+transaction_cluster_data_encoded <- model.matrix(~ Payment_Method + 
+                                                   Shipping_Method + 
+                                                   Total_Amount + 
+                                                   Rating_Numeric - 1,
+                                                 data = transaction_cluster_data_sampled)
 transaction_cluster_data_encoded <- as.data.frame(transaction_cluster_data_encoded)
 
 # Add back cluster info for use in PCA or visualization
@@ -304,8 +420,8 @@ transaction_cluster_plot <- factoextra::fviz_cluster(
 )
 print(transaction_cluster_plot)
 
+# Preparing Cluster Summary
 transaction_cluster_data_sampled$Cluster <- as.factor(transaction_cluster_cut)
-
 
 transaction_summary_table <- transaction_cluster_data_sampled %>%
   group_by(Cluster) %>%
@@ -322,32 +438,19 @@ print(transaction_summary_table)
 
 
 ## Top 3 Payment x Shipping Combo in each cluster
-# Preparing Data
-transaction_cluster_data_sampled_data <- transaction_cluster_data_sampled %>%
-  mutate(Combo = paste(Payment_Method, "+", Shipping_Method))
-
-transaction_summary_table <- transaction_cluster_data_sampled_data %>%
-  group_by(Cluster, Combo) %>%
-  summarise(Count = n(), .groups = "drop") %>%
-  group_by(Cluster) %>%
-  mutate(Percent = Count / sum(Count) * 100) %>%
-  arrange(Cluster, desc(Count)) %>%
-  slice_head(n = 1)  # Top combo per cluster
-
-transaction_summary_table
-
-
-# Create combo column
-transaction_cluster_data_sampled_data$Combo <- paste(transaction_cluster_data_sampled_data$Payment_Method, transaction_cluster_data_sampled_data$Shipping_Method, sep = " + ")
+# Preparing Data - Create combo column
+transaction_cluster_data_sampled$Combo <- paste(transaction_cluster_data_sampled$Payment_Method,
+                                                     transaction_cluster_data_sampled$Shipping_Method,
+                                                     sep = " + ")
 
 # Get top 3 combos per cluster
-payment_shipping_top_combos <- transaction_cluster_data_sampled_data %>%
+payment_shipping_top_combos <- transaction_cluster_data_sampled %>%
   count(Cluster, Combo) %>%
   group_by(Cluster) %>%
   slice_max(n, n = 3) %>%
   mutate(Proportion = n / sum(n)) %>%
   arrange(Cluster, desc(n)) %>%
-  mutate(Combo = factor(Combo, levels = rev(unique(Combo)))) %>%  # this ensures proper stacking order within each cluster
+  mutate(Combo = factor(Combo, levels = rev(unique(Combo)))) %>%
   mutate(LabelPos = cumsum(Proportion) - Proportion / 2) %>%
   ungroup() %>%
   mutate(Label = ifelse(Proportion > 0.05, paste0(Combo, "\n", percent(Proportion)), ""))
