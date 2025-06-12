@@ -206,8 +206,9 @@ print(total_amount_rating_plot)
 ### Analysis 2 - 2: Is there a statistically significant relationship between customer satisfaction with payment and shipping method? 
 ## Calculate p value with Chi Square Test
 # Collapse into a 2D table by combining Shipping_Method & Payment_Method into one interaction
-retail_data_proc$Combo <- interaction(retail_data_proc$Payment_Method, retail_data_proc$Shipping_Method)
-payment_shipping_chi_table <- table(retail_data_proc$Ratings, retail_data_proc$Combo)
+payment_shipping_analysis_data <- retail_data_proc
+payment_shipping_analysis_data$Combo <- interaction(payment_shipping_analysis_data$Payment_Method, payment_shipping_analysis_data$Shipping_Method)
+payment_shipping_chi_table <- table(payment_shipping_analysis_data$Ratings, payment_shipping_analysis_data$Combo)
 
 ## Perform Chi-square test
 payment_shipping_chi_test <- chisq.test(payment_shipping_chi_table)
@@ -217,11 +218,11 @@ print(payment_shipping_chi_test)
 
 ## With logistic regression test
 # Convert Ratings to binary (1 = High, 0 = Low)
-retail_data_proc$Ratings_Binary <- ifelse(retail_data_proc$Ratings == "High", 1, 0)
+payment_shipping_analysis_data$Ratings_Binary <- ifelse(payment_shipping_analysis_data$Ratings == "High", 1, 0)
 
 # Fit logistic regression model
 payment_shipping_logit_model <- glm(Ratings_Binary ~ Payment_Method + Shipping_Method,
-                   data = retail_data_proc, family = "binomial")
+                   data = payment_shipping_analysis_data, family = "binomial")
 
 # Summary and p-values
 summary(payment_shipping_logit_model)
