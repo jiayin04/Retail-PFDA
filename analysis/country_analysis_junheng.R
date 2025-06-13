@@ -437,7 +437,7 @@ country_roc_plot <- ggplot(country_roc_data, aes(x = fpr, y = sensitivity)) +
   color = "#FDE725FF", size = 3, shape = 16) +
   annotate("text", 
            x = 0.7, y = 0.3, 
-           label = paste("AUC =", round(auc_value, 3)), 
+           label = paste("AUC =", round(country_auc_value, 3)), 
            size = 5, fontface = "bold",
            color = "#440154FF") +
   labs(
