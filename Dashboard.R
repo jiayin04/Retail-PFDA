@@ -218,8 +218,6 @@ ui <- dashboardPage(
                                         solidHeader = TRUE,
                                         width = 12,
                                         h4("Model Accuracy Metrics"),
-                                        withSpinner(DT::dataTableOutput("model_performance_table")),
-                                        br(),
                                         verbatimTextOutput("confusion_matrix")
                                       )
                                )
@@ -236,21 +234,23 @@ ui <- dashboardPage(
                                ),
                                column(6,
                                       box(
-                                        title = "Random Forest Predictions",
-                                        status = "info",
+                                        title = "Balanced Dataset Distribution",
+                                        status = "primary",
                                         solidHeader = TRUE,
                                         width = 12,
-                                        withSpinner(plotlyOutput("rf_prediction_plot"))
+                                        withSpinner(plotlyOutput("balanced_data_plot"))
                                       )
                                )
                              ),
                              fluidRow(
-                               box(
-                                 title = "Balanced Dataset Distribution",
-                                 status = "primary",
-                                 solidHeader = TRUE,
-                                 width = 12,
-                                 withSpinner(plotlyOutput("balanced_data_plot"))
+                               column(12,
+                                      box(
+                                        title = "ROC Curve Analysis",
+                                        status = "warning",
+                                        solidHeader = TRUE,
+                                        width = 12,
+                                        withSpinner(plotlyOutput("country_roc_plot"))
+                                      )
                                )
                              )
                     ),
@@ -863,32 +863,6 @@ server <- function(input, output, session) {
   })
   
   # Predictive Analysis Outputs
-  output$model_performance_table <- DT::renderDataTable({
-    # Create performance metrics table
-    performance_metrics_country <- data.frame(
-      Model = c("Logistic Regression", "Random Forest"),
-      Accuracy = c(
-        round(conf_matrix_logistic_country$overall["Accuracy"], 3),
-        round(conf_matrix_rf_country$overall["Accuracy"], 3)
-      ),
-      Sensitivity = c(
-        round(conf_matrix_logistic_country$byClass["Sensitivity"], 3),
-        round(conf_matrix_rf_country$byClass["Sensitivity"], 3)
-      ),
-      Specificity = c(
-        round(conf_matrix_logistic_country$byClass["Specificity"], 3),
-        round(conf_matrix_rf_country$byClass["Specificity"], 3)
-      ),
-      Precision = c(
-        round(conf_matrix_logistic_country$byClass["Pos Pred Value"], 3),
-        round(conf_matrix_rf_country$byClass["Pos Pred Value"], 3)
-      )
-    )
-    
-    DT::datatable(performance_metrics_country,
-                  options = list(pageLength = 5, dom = 't'),
-                  caption = "Model Performance Comparison")
-  })
   
   output$confusion_matrix <- renderText({
     paste(
@@ -897,29 +871,21 @@ server <- function(input, output, session) {
       "Actual     High  Low\n",
       "High       ", conf_matrix_logistic_country$table[1,1], "  ", conf_matrix_logistic_country$table[1,2], "\n",
       "Low        ", conf_matrix_logistic_country$table[2,1], "  ", conf_matrix_logistic_country$table[2,2], "\n\n",
-      "Random Forest Confusion Matrix:\n",
-      "           Predicted\n",
-      "Actual     High  Low\n",
-      "High       ", conf_matrix_rf_country$table[1,1], "  ", conf_matrix_rf_country$table[1,2], "\n",
-      "Low        ", conf_matrix_rf_country$table[2,1], "  ", conf_matrix_rf_country$table[2,2], "\n\n",
-      "Models trained on balanced dataset with equal representation from each country."
+      "Model trained on balanced dataset with equal representation from each country."
     )
-  })
-  
-  output$side_by_side_plots <- renderPlotly({
-    ggplotly(side_by_side_plots_country)
   })
   
   output$logistic_prediction_plot <- renderPlotly({
     ggplotly(plot_logistic_country)
   })
   
-  output$rf_prediction_plot <- renderPlotly({
-    ggplotly(plot_rf_country)
-  })
-  
   output$balanced_data_plot <- renderPlotly({
     ggplotly(plot_rating_distribution_country)
+  })
+  
+  # Add ROC curve plot output
+  output$country_roc_plot <- renderPlotly({
+    ggplotly(country_roc_plot)
   })
   
   # Prescriptive Analysis Outputs
