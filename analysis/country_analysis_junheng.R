@@ -201,22 +201,24 @@ print(tukey_country_result)
 
 # Data Preparation for Both Models
 
-# a. Select only Country and Ratings columns
 raw_data_country <- data %>%
   select(Ratings, Country) %>%
   na.omit()
 
-# b. Convert variables to factors
+# Convert variables to factors
 raw_data_country$Ratings <- as.factor(raw_data_country$Ratings)
 raw_data_country$Country <- as.factor(raw_data_country$Country)
 
-# c. Check the initial distribution of data by country
+# Check the initial distribution of data by country
 country_counts <- table(raw_data_country$Country)
 print("Original country distribution:")
 print(country_counts)
 
-# d. Create a balanced dataset with equal representation from each country
-# Find the count of the second most frequent country (not USA)
+# Check rating distribution before balancing
+print("Original rating distribution:")
+print(table(raw_data_country$Ratings))
+
+# Create a balanced dataset with equal representation from each country
 usa_count <- sum(raw_data_country$Country == "USA")
 other_countries <- raw_data_country$Country != "USA"
 if(sum(other_countries) > 0) {
@@ -226,118 +228,162 @@ if(sum(other_countries) > 0) {
   second_most_count_country <- 0
 }
 
-# e. Set sample size per country (use second most frequent country as guide)
-sample_size_country <- min(second_most_count_country, 500)  # Cap at 500 samples per country
-if(sample_size_country < 50) sample_size_country <- 50  # Ensure at least 50 samples per country
+# Set sample size per country
+sample_size_country <- min(second_most_count_country, 50000)
+if(sample_size_country < 50) sample_size_country <- 50
 
-# f. Create balanced dataset
-set.seed(123)  # For reproducibility
-balanced_data_country <- data.frame()  # Empty dataframe to hold our balanced dataset
+# Create balanced dataset with stratified sampling to preserve rating distribution
+set.seed(123)
+balanced_data_country <- data.frame()
 
 for(country in levels(raw_data_country$Country)) {
   country_data <- raw_data_country[raw_data_country$Country == country, ]
   
-  # If country has fewer samples than our target, use all of them
   if(nrow(country_data) <= sample_size_country) {
     sampled_data_country <- country_data
   } else {
-    # Otherwise, take a random sample
-    sampled_data_country <- country_data[sample(1:nrow(country_data), sample_size_country), ]
+    # Stratified sampling to maintain rating distribution within each country
+    high_ratings <- country_data[country_data$Ratings == "High", ]
+    low_ratings <- country_data[country_data$Ratings == "Low", ]
+    
+    # Calculate proportional sample sizes
+    high_prop <- nrow(high_ratings) / nrow(country_data)
+    low_prop <- nrow(low_ratings) / nrow(country_data)
+    
+    high_sample_size <- round(sample_size_country * high_prop)
+    low_sample_size <- sample_size_country - high_sample_size
+    
+    # Sample from each rating category
+    if(nrow(high_ratings) > 0 && high_sample_size > 0) {
+      high_sampled <- high_ratings[sample(1:nrow(high_ratings), min(high_sample_size, nrow(high_ratings))), ]
+    } else {
+      high_sampled <- data.frame()
+    }
+    
+    if(nrow(low_ratings) > 0 && low_sample_size > 0) {
+      low_sampled <- low_ratings[sample(1:nrow(low_ratings), min(low_sample_size, nrow(low_ratings))), ]
+    } else {
+      low_sampled <- data.frame()
+    }
+    
+    sampled_data_country <- rbind(high_sampled, low_sampled)
   }
   
   balanced_data_country <- rbind(balanced_data_country, sampled_data_country)
 }
 
-# g. Shuffle the balanced dataset
+# Shuffle the balanced dataset
 balanced_data_country <- balanced_data_country[sample(1:nrow(balanced_data_country)), ]
 
-# h. Check the new distribution
+# Check the new distributions
 balanced_counts_country <- table(balanced_data_country$Country)
 print("Balanced country distribution:")
 print(balanced_counts_country)
 
-# i. Visualize the balanced distribution
+print("Balanced rating distribution:")
+print(table(balanced_data_country$Ratings))
+
+# Visualize the balanced distribution
 par(mfrow = c(1, 2))
-# Original distribution
-barplot(country_counts, main = "Original Country Distribution", 
-        las = 2, cex.names = 0.7)
-# Balanced distribution
-barplot(balanced_counts_country, main = "Balanced Country Distribution", 
-        las = 2, cex.names = 0.7)
+barplot(country_counts, main = "Original Country Distribution", las = 2, cex.names = 0.7)
+barplot(balanced_counts_country, main = "Balanced Country Distribution", las = 2, cex.names = 0.7)
 par(mfrow = c(1, 1))
 
-# j. Check rating distribution in balanced dataset
+# Check rating distribution by country in balanced dataset
 rating_by_country <- table(balanced_data_country$Country, balanced_data_country$Ratings)
 print("Rating distribution by country in balanced dataset:")
 print(rating_by_country)
 
-# k. Split balanced data into training and testing sets (80/20 split)
+# Split balanced data into training and testing sets (80/20 split)
 set.seed(123)
 train_index_country <- createDataPartition(balanced_data_country$Ratings, p = 0.8, list = FALSE)
 train_data_country <- balanced_data_country[train_index_country, ]
 test_data_country <- balanced_data_country[-train_index_country, ]
 
+print("Training data rating distribution:")
+print(table(train_data_country$Ratings))
+print("Test data rating distribution:")
+print(table(test_data_country$Ratings))
+
 #==================================================================================
-#  Logistic Regression Model
+# Logistic Regression Model
 #==================================================================================
 
-print("\n=== LOGISTIC REGRESSION MODEL ===\n")
-
-# a. Convert Ratings to binary for logistic regression (1 = High, 0 = Low)
 balanced_data_country$Ratings_binary <- ifelse(balanced_data_country$Ratings == "High", 1, 0)
 train_data_country$Ratings_binary <- ifelse(train_data_country$Ratings == "High", 1, 0)
 test_data_country$Ratings_binary <- ifelse(test_data_country$Ratings == "High", 1, 0)
 
-# b. Build logistic regression model
+# Build logistic regression model
 logistic_model_country <- glm(Ratings_binary ~ Country, 
                               data = train_data_country, 
                               family = binomial)
 
-# c. Print model summary
+# Print model summary
 print("=== LOGISTIC REGRESSION MODEL SUMMARY ===")
 print(summary(logistic_model_country))
 
-# d. Make predictions on test data
+# Make predictions on test data
 predicted_probs_country <- predict(logistic_model_country, test_data_country, type = "response")
-predicted_ratings_country <- ifelse(predicted_probs_country >= 0.5, "High", "Low")
+
+print("Distribution of predicted probabilities:")
+print(summary(predicted_probs_country))
+print("Quantiles of predicted probabilities:")
+print(quantiles <- quantile(predicted_probs_country, probs = c(0.1, 0.25, 0.5, 0.75, 0.9)))
+
+threshold_balanced <- quantile(predicted_probs_country, 1 - mean(test_data_country$Ratings == "High"))
+print(paste("Balanced threshold:", round(threshold_balanced, 3)))
+
+# Use the balanced threshold for final predictions
+final_threshold <- threshold_balanced
+predicted_ratings_country <- ifelse(predicted_probs_country >= final_threshold, "High", "Low")
 predicted_ratings_country <- factor(predicted_ratings_country, levels = c("Low", "High"))
 
-# e. Create confusion matrix
+# Final confusion matrix
 conf_matrix_logistic_country <- confusionMatrix(predicted_ratings_country, test_data_country$Ratings)
-print("=== LOGISTIC REGRESSION PERFORMANCE ===")
 print(conf_matrix_logistic_country)
 
-# f. Get predicted probabilities for each country
+# Get predicted probabilities for each country
 country_predictions_logistic <- data.frame()
 for(country in levels(balanced_data_country$Country)) {
   country_test_logistic <- data.frame(Country = factor(country, levels = levels(balanced_data_country$Country)))
   prob_high_country_logistic <- predict(logistic_model_country, country_test_logistic, type = "response")
   country_predictions_logistic <- rbind(country_predictions_logistic, 
                                         data.frame(Country = country, 
-                                                   Predicted_High_Probability = round(prob_high_country_logistic * 100, 2)))
+                                                   Predicted_High_Probability = round(prob_high_country_logistic * 100, 2),
+                                                   Predicted_Low_Probability = round((1 - prob_high_country_logistic) * 100, 2)))
 }
 
-# g. Sort by probability and display
+# Sort by probability and display
 country_predictions_logistic <- country_predictions_logistic[order(-country_predictions_logistic$Predicted_High_Probability), ]
-print("=== PREDICTED HIGH RATING PROBABILITIES BY COUNTRY (LOGISTIC REGRESSION) ===")
+print("=== PREDICTED PROBABILITIES BY COUNTRY (LOGISTIC REGRESSION) ===")
 print(country_predictions_logistic)
 
 # h. Visualize predicted probabilities from logistic regression
-plot_logistic_country <- ggplot(country_predictions_logistic, 
-                        aes(x = reorder(Country, Predicted_High_Probability), 
-                            y = Predicted_High_Probability, 
-                            fill = Predicted_High_Probability)) +
-  geom_col(alpha = 0.8) +
-  geom_text(aes(label = paste0(Predicted_High_Probability, "%")), 
+country_pred_long <- reshape2::melt(country_predictions_logistic, 
+                                    id.vars = "Country",
+                                    measure.vars = c("Predicted_High_Probability", "Predicted_Low_Probability"),
+                                    variable.name = "Rating_Type", 
+                                    value.name = "Probability")
+
+country_pred_long$Rating_Type <- gsub("Predicted_", "", country_pred_long$Rating_Type)
+country_pred_long$Rating_Type <- gsub("_Probability", "", country_pred_long$Rating_Type)
+
+# Stacked bar plot showing both high and low probabilities
+plot_logistic_country <- ggplot(country_pred_long, 
+                                aes(x = reorder(Country, ifelse(Rating_Type == "High", Probability, -Probability)), 
+                                    y = Probability, 
+                                    fill = Rating_Type)) +
+  geom_col(position = "dodge", alpha = 0.8, width = 0.7) +
+  geom_text(aes(label = paste0(Probability, "%")), 
+            position = position_dodge(width = 0.7), 
             hjust = -0.1, size = 3.5, fontface = "bold") +
   coord_flip() +
-  scale_fill_viridis_c(name = "Probability (%)", 
-                       option = "plasma",
-                       begin = 0.2, end = 0.9) +
-  labs(title = "Predicted High Rating Probabilities by Country",
-       subtitle = "Logistic Regression Model",
+  scale_fill_manual(values = c("High" = "#440154FF", "Low" = "#FDE725FF"),
+                    name = "Rating Prediction") +
+  labs(title = "Predicted Rating Probabilities by Country",
+       subtitle = "Logistic Regression Model - Both High and Low Predictions",
        x = "Country", 
-       y = "Predicted Probability of High Rating (%)") +
+       y = "Predicted Probability (%)") +
   theme_minimal() +
   theme(
     plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
@@ -348,9 +394,10 @@ plot_logistic_country <- ggplot(country_predictions_logistic,
     panel.grid.major.y = element_blank(),
     panel.grid.minor = element_blank()
   ) +
-  ylim(0, max(country_predictions_logistic$Predicted_High_Probability) * 1.1)
+  ylim(0, 105)
 
 print(plot_logistic_country)
+
 
 # Final performance metrics for Logistic Regression Model
 final_metrics_country_logistic <- data.frame(
@@ -362,192 +409,58 @@ final_metrics_country_logistic <- data.frame(
 print("=== LOGISTIC REGRESSION DETAILED METRICS ===")
 print(final_metrics_country_logistic)
 
-#==================================================================================
-# Additional Model: Random Forest Model
-#==================================================================================
+#Visualize ROC Plot
+country_roc_obj <- roc(test_data_country$Ratings_binary, predicted_probs_country)
 
-print("\n=== RANDOM FOREST MODEL ===\n")
+# Calculate AUC
+country_auc_value <- auc(roc_obj)
 
-# a. Build Random Forest model
-rf_country_ratings_model <- randomForest(
-  Ratings ~ Country,
-  data = train_data_country,
-  ntree = 50,
-  importance = TRUE
+# Extract ROC curve data for plotting
+country_roc_data <- data.frame(
+  sensitivity = roc_obj$sensitivities,
+  specificity = roc_obj$specificities,
+  threshold = roc_obj$thresholds
 )
 
-# b. Print model summary
-print("=== RANDOM FOREST MODEL SUMMARY ===")
-print(rf_country_ratings_model)
+# Calculate 1 - specificity for plotting
+country_roc_data$fpr <- 1 - country_roc_data$specificity
 
-# c. Make predictions on test data
-predictions_country_rf <- predict(rf_country_ratings_model, test_data_country)
-
-# d. Create confusion matrix for evaluation
-conf_matrix_rf_country <- confusionMatrix(predictions_country_rf, test_data_country$Ratings)
-print("=== RANDOM FOREST PERFORMANCE ===")
-print(conf_matrix_rf_country)
-
-# e. Variable importance (only Country in this case)
-var_importance_country <- importance(rf_country_ratings_model)
-print("=== VARIABLE IMPORTANCE ===")
-print(var_importance_country)
-
-# f. Calculate rating distribution by country in our balanced dataset
-country_ratings <- balanced_data_country %>%
-  group_by(Country) %>%
-  summarize(
-    Total = n(),
-    High_Count = sum(Ratings == "High"),
-    Low_Count = sum(Ratings == "Low"),
-    High_Percentage = round(High_Count / Total * 100, 2)
-  ) %>%
-  arrange(desc(High_Percentage))
-
-print("=== RATING PERCENTAGES BY COUNTRY (BALANCED DATA) ===")
-print(country_ratings)
-
-# g. Visualize rating distribution by country
-plot_rating_distribution_country <- ggplot(balanced_data_country, aes(x = reorder(Country, -as.numeric(Ratings == "High")), fill = Ratings)) +
-  geom_bar(position = "fill") +
-  scale_y_continuous(labels = scales::percent) +
-  labs(title = "Rating Distribution by Country (Balanced Dataset)", 
-       y = "Percentage",
-       x = "Country") +
-  theme_minimal() +
-  scale_fill_manual(values = c("Low" = "#E69F00", "High" = "#56B4E9")) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-print(plot_rating_distribution_country)
-
-# h. Calculate accuracy by country
-train_predictions_country <- predict(rf_country_ratings_model, train_data_country)
-train_results_country <- data.frame(
-  Country = train_data_country$Country,
-  Actual = train_data_country$Ratings,
-  Predicted = train_predictions_country
-)
-
-country_accuracy <- train_results_country %>%
-  group_by(Country) %>%
-  summarize(
-    Total = n(),
-    Correct = sum(Actual == Predicted),
-    Accuracy = round(Correct / Total * 100, 2)
-  ) %>%
-  arrange(desc(Accuracy))
-
-print("=== PREDICTION ACCURACY BY COUNTRY ===")
-print(country_accuracy)
-
-# i. Predict high rating percentages for each country using Random Forest
-all_country_predictions <- data.frame(
-  Country = character(),
-  Predicted_High_Probability = numeric(),
-  stringsAsFactors = FALSE
-)
-
-cat("=== PREDICTED HIGH RATING PROBABILITIES BY COUNTRY (RANDOM FOREST) ===\n")
-for (country in levels(balanced_data_country$Country)) {
-  # Create test data for this country
-  country_test <- data.frame(Country = factor(country, levels = levels(balanced_data_country$Country)))
-  
-  # Get predictions for this country
-  prediction <- predict(rf_country_ratings_model, country_test, type = "prob")
-  predicted_prob <- round(prediction[, "High"] * 100, 2)
-  
-  # Print result
-  cat(paste0("Predicted high rating percentage for ", country, ": ", predicted_prob, "%\n"))
-  
-  # Append to results
-  all_country_predictions <- rbind(all_country_predictions, 
-                                   data.frame(Country = country, 
-                                              Predicted_High_Probability = predicted_prob))
-}
-
-#j. Visualization for high ratings predictions
-plot_rf_country <- ggplot(all_country_predictions, 
-                          aes(x = reorder(Country, Predicted_High_Probability), 
-                              y = Predicted_High_Probability, 
-                              fill = Predicted_High_Probability)) +
-  geom_col(alpha = 0.8) +
-  geom_text(aes(label = paste0(Predicted_High_Probability, "%")), 
-            hjust = -0.1, size = 3.5, fontface = "bold") +
-  coord_flip() +
-  scale_fill_viridis_c(name = "Probability (%)", 
-                       option = "viridis",
-                       begin = 0.2, end = 0.9) +
-  labs(title = "Predicted High Rating Probabilities by Country",
-       subtitle = "Random Forest Model",
-       x = "Country", 
-       y = "Predicted Probability of High Rating (%)") +
+# Create the ROC curve plot
+country_roc_plot <- ggplot(country_roc_data, aes(x = fpr, y = sensitivity)) +
+  geom_line(color = "#440154FF", size = 1.2) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", 
+              color = "red", alpha = 0.7, size = 0.8) +
+  geom_point(data = data.frame(
+    fpr = 1 - threshold_balanced,  # Using the balanced threshold from your code
+    sensitivity = country_roc_obj$sensitivities[which.min(abs(country_roc_obj$thresholds - threshold_balanced))]
+  ), aes(x = fpr, y = sensitivity), 
+  color = "#FDE725FF", size = 3, shape = 16) +
+  annotate("text", 
+           x = 0.7, y = 0.3, 
+           label = paste("AUC =", round(auc_value, 3)), 
+           size = 5, fontface = "bold",
+           color = "#440154FF") +
+  labs(
+    title = "ROC Curve - Logistic Regression Model",
+    subtitle = "Country-based Rating Prediction",
+    x = "False Positive Rate (1 - Specificity)",
+    y = "True Positive Rate (Sensitivity)"
+  ) +
   theme_minimal() +
   theme(
-    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
     plot.subtitle = element_text(size = 12, hjust = 0.5),
-    axis.text = element_text(size = 10),
-    axis.title = element_text(size = 11, face = "bold"),
-    legend.position = "right",
-    panel.grid.major.y = element_blank(),
-    panel.grid.minor = element_blank()
+    axis.text = element_text(size = 11),
+    axis.title = element_text(size = 12, face = "bold"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = 0.5)
   ) +
-  ylim(0, max(all_country_predictions$Predicted_High_Probability) * 1.1)
+  coord_equal() +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2))
 
-print(plot_rf_country)
-
-#k. Final performance metrics for Random Forest
-final_metrics_country_rf <- data.frame(
-  Accuracy = conf_matrix_rf_country$overall["Accuracy"],
-  Sensitivity = conf_matrix_rf_country$byClass["Sensitivity"],
-  Specificity = conf_matrix_rf_country$byClass["Specificity"],
-  Precision = conf_matrix_rf_country$byClass["Pos Pred Value"]
-)
-print("=== RANDOM FOREST DETAILED METRICS ===")
-print(final_metrics_country_rf)
-
-#==================================================================================
-# SIDE-BY-SIDE COMPARISON
-#==================================================================================
-
-# Create side-by-side plots
-side_by_side_plots_country <- plot_logistic_country + plot_rf_country + 
-  plot_layout(ncol = 2) +
-  plot_annotation(
-    title = "Model Predictions Comparison: High Rating Probabilities by Country",
-    theme = theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
-  )
-
-print(side_by_side_plots_country)
-
-#==================================================================================
-# Model Comparison
-#==================================================================================
-
-print("\n=== MODEL COMPARISON ===\n")
-
-# Compare model performance
-performance_comparison_country <- data.frame(
-  Model = c("Logistic Regression", "Random Forest"),
-  Accuracy = c(
-    round(conf_matrix_logistic_country$overall["Accuracy"], 3),
-    round(conf_matrix_rf_country$overall["Accuracy"], 3)
-  ),
-  Sensitivity = c(
-    round(conf_matrix_logistic_country$byClass["Sensitivity"], 3),
-    round(conf_matrix_rf_country$byClass["Sensitivity"], 3)
-  ),
-  Specificity = c(
-    round(conf_matrix_logistic_country$byClass["Specificity"], 3),
-    round(conf_matrix_rf_country$byClass["Specificity"], 3)
-  ),
-  Precision = c(
-    round(conf_matrix_logistic_country$byClass["Pos Pred Value"], 3),
-    round(conf_matrix_rf_country$byClass["Pos Pred Value"], 3)
-  )
-)
-
-print("=== FINAL MODEL PERFORMANCE COMPARISON ===")
-print(performance_comparison_country)
+# Display the plot
+print(country_roc_plot)
 
 #==================================================================================
 # Analysis 4: What specific actions should be taken to improve customer 
