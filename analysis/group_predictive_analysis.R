@@ -17,8 +17,8 @@ overall_model_data <- retail_data_proc |>
 # Split data into training and testing sets (80/20 split)
 set.seed(123) # For reproducibility
 overall_train_index <- createDataPartition(overall_model_data$Ratings, p = 0.8, list = FALSE)
-overall_train_data <- overall_model_data[train_index, ]
-overall_test_data <- overall_model_data[-train_index, ]
+overall_train_data <- overall_model_data[overall_train_index, ]
+overall_test_data <- overall_model_data[-overall_train_index, ]
 
 # Build Random Forest model
 overall_rf_model <- randomForest(

@@ -57,7 +57,7 @@ source("analysis/analysis_aikyen.R")
 
 
 ### ─────────────────────────────────────────────
-### 6. Group Analysis
+### 6. Group Analysis (Just for reference)
 ### ─────────────────────────────────────────────
 source("analysis/group_predictive_analysis.R")
 
