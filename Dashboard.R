@@ -223,22 +223,13 @@ ui <- dashboardPage(
                                )
                              ),
                              fluidRow(
-                               column(6,
+                               column(12,
                                       box(
                                         title = "Logistic Regression Predictions",
                                         status = "info",
                                         solidHeader = TRUE,
                                         width = 12,
                                         withSpinner(plotlyOutput("logistic_prediction_plot"))
-                                      )
-                               ),
-                               column(6,
-                                      box(
-                                        title = "Balanced Dataset Distribution",
-                                        status = "primary",
-                                        solidHeader = TRUE,
-                                        width = 12,
-                                        withSpinner(plotlyOutput("balanced_data_plot"))
                                       )
                                )
                              ),
@@ -877,10 +868,6 @@ server <- function(input, output, session) {
   
   output$logistic_prediction_plot <- renderPlotly({
     ggplotly(plot_logistic_country)
-  })
-  
-  output$balanced_data_plot <- renderPlotly({
-    ggplotly(plot_rating_distribution_country)
   })
   
   # Add ROC curve plot output
