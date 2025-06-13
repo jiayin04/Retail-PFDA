@@ -413,7 +413,7 @@ print(final_metrics_country_logistic)
 country_roc_obj <- roc(test_data_country$Ratings_binary, predicted_probs_country)
 
 # l. Calculate AUC
-country_auc_value <- auc(roc_obj)
+country_auc_value <- auc(country_roc_obj)
 
 # m. Extract ROC curve data for plotting
 country_roc_data <- data.frame(
