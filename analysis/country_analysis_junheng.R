@@ -417,9 +417,9 @@ country_auc_value <- auc(roc_obj)
 
 # m. Extract ROC curve data for plotting
 country_roc_data <- data.frame(
-  sensitivity = roc_obj$sensitivities,
-  specificity = roc_obj$specificities,
-  threshold = roc_obj$thresholds
+  sensitivity = country_roc_obj$sensitivities,
+  specificity = country_roc_obj$specificities,
+  threshold = country_roc_obj$thresholds
 )
 
 # n. Calculate 1 - specificity for plotting
