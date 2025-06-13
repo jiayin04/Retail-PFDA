@@ -216,11 +216,17 @@ pair_by_rating_top <- pair_by_rating_wide |>
 
 print(pair_by_rating_top)
 
+# Make it suitable for plotting bar plot
+pair_by_rating_top_long <- pair_by_rating_top |>
+  select(-Total) |>
+  pivot_longer(cols = c(High, Low), names_to = "Rating", values_to = "Count")
+
+
 ## ----------- Visualization ----------------##
 library(ggplot2)
 library(MetBrewer)
 # [BAR PLOT]
-bar_plot <- ggplot(pair_by_rating_top, aes(x = pair, y = Count, fill = Rating)) +
+bar_plot <- ggplot(pair_by_rating_top_long, aes(x = pair, y = Count, fill = Rating)) +
   geom_bar(stat = "identity", position = "dodge", width = 0.7) +
   geom_text(aes(label = Count), 
             position = position_dodge(width = 0.7), 
